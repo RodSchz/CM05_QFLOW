@@ -63,6 +63,7 @@ después el paso que quieras repetir (o *Ejecutar todas*).
 | `ASPECTO` | Proporción **alto/ancho** del chip: 0.4 da un chip ancho y bajo; 2.0, uno alto. |
 | `PINES_*` | Pines de E/S de cada lado, separados por comas (`clk, rst`). Un bus sin índice (`q`) incluye todos sus bits; los que no pongas quedan libres. **Con 2 metales usa arriba/abajo**: a los costados compiten con las franjas de alimentación. Todos vacíos = libres (o el `.cel2` que subas). |
 | `ORDEN_FIJO` | Marcado: respeta el orden escrito en cada lado; sin marcar, graywolf los permuta para acortar el ruteo. |
+| `BUFFER_SALIDA` | Celda que qflow pone en cada salida: *BUFX2* (normal), *BUFX4* (doble corriente, para manejar cargas como un resistor o un espejo) o *ninguno* (la salida la maneja la última compuerta, o una celda que instancies tú en el Verilog). |
 | `TAMANO_ETIQUETAS` | Alto (µm) del texto de los pines en el GDS (capas 49/1 y 51/1). En KLayout de escritorio se ve a su tamaño real con *File → Setup → Display → Texts → Font: Stick Font*. |
 | `SENALES`, `T0`, `T1` | Señales a graficar (vacío = todas las del testbench) y ventana de tiempo en ns (`T1 = 0` = hasta el final). |
 | `ZOOM` | Vacío = chip completo en la vista del layout; `x1, y1, x2, y2` (µm) para acercarte. |"""))
@@ -78,6 +79,7 @@ PINES_ABAJO = ''  #@param {type:"string"}
 PINES_IZQUIERDA = ''  #@param {type:"string"}
 PINES_DERECHA = ''  #@param {type:"string"}
 ORDEN_FIJO = False  #@param {type:"boolean"}
+BUFFER_SALIDA = 'BUFX2'  #@param ["BUFX2", "BUFX4", "ninguno"]
 TAMANO_ETIQUETAS = 20  #@param {type:"slider", min:5, max:50, step:5}
 #@markdown ### Gráficas de ondas y vista del layout
 SENALES = ''  #@param {type:"string"}
@@ -102,11 +104,11 @@ if set(_PINES) & {'izquierda', 'derecha'}:
 def config(*nombres):
     \"\"\"Imprime la configuración que usa un paso.\"\"\"
     v = dict(diseño=_EJEMPLO or 'archivos subidos', densidad=_DENSIDAD or 'automática', alto_ancho=ASPECTO,
-             pines=_PINES or 'libres', orden_fijo=ORDEN_FIJO, etiquetas_um=TAMANO_ETIQUETAS,
+             pines=_PINES or 'libres', orden_fijo=ORDEN_FIJO, buffer_salida=BUFFER_SALIDA, etiquetas_um=TAMANO_ETIQUETAS,
              señales=_SENALES or 'todas', ventana_ns=(T0, _T1 or 'final'), zoom=_ZOOM or 'chip completo')
     print('Configuración:', ' | '.join(f'{k} = {v[k]}' for k in nombres))
 
-config(*'diseño densidad alto_ancho pines orden_fijo etiquetas_um señales ventana_ns zoom'.split())"""))
+config(*'diseño densidad alto_ancho pines orden_fijo buffer_salida etiquetas_um señales ventana_ns zoom'.split())"""))
 
 cells.append(md("""## 3. Tu diseño y su testbench
 
@@ -205,9 +207,10 @@ cells.append(md("""## 5. Flujo de Verilog a GDS
 Síntesis, colocación, ruteo, LVS, legalización y DRC con la densidad, proporción y pines de la configuración.
 Tarda de uno a varios minutos según el tamaño del diseño."""))
 cells.append(code("""import json
-config('densidad', 'alto_ancho', 'pines', 'orden_fijo', 'etiquetas_um')
+config('densidad', 'alto_ancho', 'pines', 'orden_fijo', 'buffer_salida', 'etiquetas_um')
 for k in ('CM05_DENSIDAD', 'CM05_ASPECTO', 'CM05_PINES'):
     os.environ.pop(k, None)
+os.environ['CM05_BUF_SALIDA'] = BUFFER_SALIDA
 os.environ['CM05_TEXTO'] = str(TAMANO_ETIQUETAS)
 if _DENSIDAD:
     os.environ['CM05_DENSIDAD'] = str(_DENSIDAD)

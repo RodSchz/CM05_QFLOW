@@ -46,6 +46,7 @@ python3 CM05_QFLOW/scripts/vcd_plot.py trabajo/counter/sim_gate/sim.vcd ondas.pn
 **Configuración** (variables de entorno de `cm05_flow.sh`): `CM05_DENSIDAD=0.5` fija la densidad (sin ella
 es automática, 0.7 → 0.3); `CM05_ASPECTO=0.5` fija la proporción alto/ancho; `CM05_PINES=pines.json` fija el
 lado de los pines, p. ej. `{"arriba": ["clk", "rst"], "abajo": ["en", "q"]}` (ver `scripts/make_cel2.py`).
+`CM05_BUF_SALIDA` elige el buffer que qflow pone en cada salida: `BUFX2` (por omisión), `BUFX4` o `ninguno`.
 Con 2 metales conviene poner los pines arriba/abajo: a los costados compiten con las franjas de alimentación.
 
 **Testbenches:** el testbench es el módulo superior, guarda ondas con `$dumpvars` (cualquier nombre en

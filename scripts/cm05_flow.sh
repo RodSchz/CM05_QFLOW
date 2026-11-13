@@ -14,13 +14,26 @@
 #   CM05_TEXTO=20         alto de las etiquetas de pines en el GDS, en um (capas 49/1, 51/1)
 #   CM05_PINES=pines.json posicion de pines por lado (ver make_cel2.py); si no se da
 #                         y existe <dir>/<modulo>.cel2, qflow lo usa tal cual
+#   CM05_BUF_SALIDA=BUFX2 buffer que qflow pone en cada salida del modulo:
+#                         BUFX2 (por omision), BUFX4 (mas corriente; tambien se usa
+#                         en el buffering por fanout) o ninguno (la salida la maneja
+#                         la ultima compuerta o la celda que instancies en el Verilog)
 # El proyecto debe tener source/<modulo>.v. Resultado: <modulo>_cm05.gds
 set -euo pipefail
 MOD=$1; DIR=$2; DECK=$3; PREFIX=${4:-/opt/cm05_eda}
 S=$(cd "$(dirname "$0")" && pwd)
 export PATH="$PREFIX/bin:$PREFIX/shims:$PATH"
 cd "$DIR"
-echo "== qflow: sintesis"
+# Buffer de salida (variables de qflow en project_vars.sh; se reescriben en cada corrida)
+[ -f project_vars.sh ] || echo '#!/bin/tcsh -f' > project_vars.sh
+sed -i '/^set nobuffers/d; /^set bufcell/d' project_vars.sh
+case "${CM05_BUF_SALIDA:-BUFX2}" in
+    BUFX2) ;;
+    BUFX4) echo "set bufcell = BUFX4" >> project_vars.sh ;;
+    ninguno|none) echo "set nobuffers" >> project_vars.sh ;;
+    *) echo "ERROR: CM05_BUF_SALIDA debe ser BUFX2, BUFX4 o ninguno"; exit 1 ;;
+esac
+echo "== qflow: sintesis (buffer de salida: ${CM05_BUF_SALIDA:-BUFX2})"
 qflow synthesize -T cm05 "$MOD" > qflow.log 2>&1 || true
 grep -A40 "Number of cells" log/synth.log | grep -E "^\s+[A-Z]+[A-Z0-9]*\s+[0-9]+" || true
 # Proporcion del chip: en el .par del proyecto (qflow lo prefiere al de la tecnologia)
