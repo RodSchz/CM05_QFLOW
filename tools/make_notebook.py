@@ -47,61 +47,100 @@ for t in iverilog yosys graywolf qrouter magic netgen qflow klayout; do printf "
 
 cells.append(md("""## 2. Tu diseño y su testbench
 
-Escribe tu módulo en `VERILOG` (con su nombre en `MODULO`) y un testbench en `TESTBENCH`, o elige uno de los
-ejemplos con `EJEMPLO` (`'counter'`, `'lfsr8'`, `'alu4'`, `'pwm8'`), que traen testbench autoverificable.
+El diseño y su testbench son **archivos `.v`** en la carpeta `diseno/` (panel de archivos 📁 a la izquierda).
+Al ejecutar la celda se abren en el **editor de Colab** (panel derecho), con resaltado de sintaxis:
+edítalos ahí y guarda con **Ctrl+S**. Las celdas siguientes siempre leen la versión guardada.
+
+- `MODULO` puede ser un ejemplo (`'counter'`, `'lfsr8'`, `'alu4'`, `'pwm8'`, con testbench autoverificable)
+  o el nombre de tu módulo: si `diseno/<MODULO>.v` no existe, se crea una plantilla.
+- También puedes **subir tus archivos** a `diseno/` arrastrándolos al panel de archivos
+  (`<MODULO>.v` y `<MODULO>_tb.v`).
+- Tus cambios no se sobrescriben al volver a ejecutar la celda; `RESTAURAR = True` vuelve a copiar el ejemplo.
 
 **El testbench** debe ser el módulo superior, escribir las ondas con `$dumpfile("sim.vcd")` y reportar con
 `$display`; si imprime una línea que empiece con `RESULTADO:`, el notebook la muestra como resumen.
+Cambia las entradas y lee las salidas en el **flanco de bajada** del reloj (`@(negedge clk)`): si una entrada
+cambia en el mismo instante que el flanco de subida, RTL y post-layout pueden resolver el empate distinto.
 
 **Restricciones de la biblioteca `cm05`:**
 - Solo **reset síncrono** (`always @(posedge clk) if (rst) ...`): el flip-flop con set/reset asíncrono (DFFSR) no está disponible porque viola la regla 8.5 de CM05.
 - XOR/XNOR, sumadores completos (FAX1/HAX1) y latches tampoco están; yosys los arma con compuertas simples.
 - Celdas disponibles: INV, BUF, NAND2/3, NOR2/3, AND2, OR2, AOI21/22, OAI21/22, MUX2, TBUF y DFFPOSX1."""))
-cells.append(code("""EJEMPLO = 'counter'      # None para usar tu propio código de abajo
+cells.append(code('''MODULO = 'counter'      # ejemplo ('counter', 'lfsr8', 'alu4', 'pwm8') o el nombre de tu módulo
+RESTAURAR = False       # True: vuelve a copiar el ejemplo encima de tus cambios
 
-MODULO = 'mi_diseno'
-VERILOG = r\'\'\'
-// Contador de 4 bits con reset sincrono
-module mi_diseno (input clk, input rst, input en, output reg [3:0] q);
+import shutil
+PLANTILLA_RTL = """// MODULO: contador de 4 bits con reset sincrono (plantilla)
+module MODULO (input clk, input rst, input en, output reg [3:0] q);
   always @(posedge clk)
     if (rst)     q <= 4'd0;
     else if (en) q <= q + 4'd1;
 endmodule
-\'\'\'
-TESTBENCH = r\'\'\'
+"""
+PLANTILLA_TB = """// Testbench de MODULO (plantilla)
 `timescale 1ns/1ps
 module tb;
   reg clk = 0, rst = 1, en = 1;
   wire [3:0] q;
-  mi_diseno dut (.clk(clk), .rst(rst), .en(en), .q(q));
+  MODULO dut (.clk(clk), .rst(rst), .en(en), .q(q));
   always #50 clk = ~clk;                       // 10 MHz
   initial begin
     $dumpfile("sim.vcd"); $dumpvars(0, tb);
-    #250 rst = 0;
+    repeat (3) @(negedge clk);                 // cambia entradas en el flanco de bajada
+    rst = 0;
     repeat (20) begin @(negedge clk); $display("q=%0d", q); end
     $display("RESULTADO: simulacion terminada");
     $finish;
   end
 endmodule
-\'\'\'
+"""
 
-if EJEMPLO:
-    MODULO = EJEMPLO
-    VERILOG = (REPO_DIR / 'examples' / EJEMPLO / f'{EJEMPLO}.v').read_text()
-    TESTBENCH = (REPO_DIR / 'examples' / EJEMPLO / f'{EJEMPLO}_tb.v').read_text()
+DISENO = BASE / 'diseno'
+DISENO.mkdir(exist_ok=True)
+RTL_V, TB_V = DISENO / f'{MODULO}.v', DISENO / f'{MODULO}_tb.v'
+ejemplo = REPO_DIR / 'examples' / MODULO
+for src, dst in ((ejemplo / f'{MODULO}.v', RTL_V), (ejemplo / f'{MODULO}_tb.v', TB_V)):
+    if src.exists() and (RESTAURAR or not dst.exists()):
+        shutil.copy(src, dst)
+if not RTL_V.exists():
+    RTL_V.write_text(PLANTILLA_RTL.replace('MODULO', MODULO))
+if not TB_V.exists():
+    TB_V.write_text(PLANTILLA_TB.replace('MODULO', MODULO))
 
 WORK = BASE / 'work' / MODULO
 (WORK / 'source').mkdir(parents=True, exist_ok=True)
-(WORK / 'source' / f'{MODULO}.v').write_text(VERILOG)
-(WORK / f'{MODULO}_tb.v').write_text(TESTBENCH)
-os.environ['MODULO'] = MODULO
-os.environ['WORK'] = str(WORK)
-print(VERILOG)"""))
+os.environ.update(MODULO=MODULO, WORK=str(WORK), DISENO=str(DISENO))
+
+def descargar(*rutas):
+    """Descarga archivos al navegador (en Colab); fuera de Colab solo muestra la ruta."""
+    try:
+        from google.colab import files as colab_files
+        for r in rutas:
+            colab_files.download(str(r))
+    except ImportError:
+        print('Fuera de Colab; archivos en:', *map(str, rutas))
+
+try:
+    from google.colab import files as colab_files
+    colab_files.view(str(RTL_V)); colab_files.view(str(TB_V))
+    print(f'Abiertos en el editor de Colab: {RTL_V.name} y {TB_V.name}  (guarda con Ctrl+S)')
+except ImportError:
+    print('Edita los archivos en', DISENO)'''))
+cells.append(code("""# Vista de solo lectura con resaltado (vuelve a ejecutar tras guardar cambios)
+from IPython.display import HTML, display
+from pygments import highlight
+from pygments.lexers import VerilogLexer
+from pygments.formatters import HtmlFormatter
+_fmt = HtmlFormatter(noclasses=True, style='friendly', linenos='inline')
+for f in (RTL_V, TB_V):
+    display(HTML(f'<b>{f.name}</b>' + highlight(f.read_text(), VerilogLexer(), _fmt)))"""))
 
 cells.append(md("""## 3. Simulación RTL
 Simula tu Verilog antes de mandarlo a layout. En la gráfica de ondas puedes elegir señales con `SENALES`
-(p. ej. `['clk', 'rst', 'q']`; `None` = todas las del testbench) y una ventana de tiempo en ns con `T0`, `T1`."""))
+(p. ej. `['clk', 'rst', 'q']`; `None` = todas las del testbench) y una ventana de tiempo en ns con `T0`, `T1`.
+Con `DESCARGAR_VCD = True` el archivo de ondas (`<modulo>_rtl.vcd`) se descarga solo, para abrirlo en GTKWave."""))
 cells.append(code("""%%bash
+cp "$DISENO/$MODULO.v" "$WORK/source/" && cp "$DISENO/${MODULO}_tb.v" "$WORK/"
 bash "$REPO_DIR/scripts/cm05_sim.sh" "$MODULO" "$WORK" "$WORK/${MODULO}_tb.v" rtl 2>&1 | grep -v "typ expression"
 echo "--- primeras lineas de la salida del testbench:"
 head -12 "$WORK/sim_rtl/salida.txt"
@@ -112,27 +151,40 @@ import matplotlib.pyplot as plt
 from vcd_plot import plot as ondas
 SENALES = None          # p. ej. ['clk', 'rst', 'q']
 T0, T1 = 0, 3000        # ventana en ns (None = completa)
+DESCARGAR_VCD = True
+
 ondas(str(WORK / 'sim_rtl' / 'sim.vcd'), SENALES, T0, T1)
-plt.show()"""))
+plt.show()
+VCD_RTL = WORK / f'{MODULO}_rtl.vcd'
+shutil.copy(WORK / 'sim_rtl' / 'sim.vcd', VCD_RTL)
+if DESCARGAR_VCD:
+    descargar(VCD_RTL)"""))
 
 cells.append(md("""## 4. Flujo de Verilog a GDS
 Si el ruteo no cierra, el script reintenta con menor densidad de colocación (0.7 → 0.5 → 0.4 → 0.3):
 con solo dos metales el ruteo necesita espacio libre entre celdas."""))
 cells.append(code("""%%bash
+cp "$DISENO/$MODULO.v" "$WORK/source/" && cp "$DISENO/${MODULO}_tb.v" "$WORK/"
 DECK="$PDK_DIR/tech/CIDESI_CM05/drc/drc.lydrc"
 bash "$REPO_DIR/scripts/cm05_flow.sh" "$MODULO" "$WORK" "$DECK" """))
 
 cells.append(md("""## 5. Simulación post-layout
 El mismo testbench sobre el netlist que quedó en el layout ruteado (`<modulo>_postroute.v`, con los modelos
 de las celdas cm05). Las trazas de texto deben ser **idénticas** a las de la simulación RTL.
-La simulación es funcional (sin retardos): los tiempos del liberty son de AMI C5, no de CM05."""))
+La simulación es funcional (sin retardos): los tiempos del liberty son de AMI C5, no de CM05.
+Con `DESCARGAR_VCD = True` se descarga `<modulo>_postlayout.vcd`."""))
 cells.append(code("""%%bash
+cp "$DISENO/${MODULO}_tb.v" "$WORK/"
 bash "$REPO_DIR/scripts/cm05_sim.sh" "$MODULO" "$WORK" "$WORK/${MODULO}_tb.v" ambos 2>&1 | grep -v "typ expression"
 """))
 cells.append(code("""fig, axs = plt.subplots(2, 1, figsize=(14, 9), sharex=True)
 ondas(str(WORK / 'sim_rtl' / 'sim.vcd'), SENALES, T0, T1, ax=axs[0]); axs[0].set_title('RTL')
 ondas(str(WORK / 'sim_gate' / 'sim.vcd'), SENALES, T0, T1, ax=axs[1]); axs[1].set_title('Post-layout (compuertas cm05)')
-plt.tight_layout(); plt.show()"""))
+plt.tight_layout(); plt.show()
+VCD_GATE = WORK / f'{MODULO}_postlayout.vcd'
+shutil.copy(WORK / 'sim_gate' / 'sim.vcd', VCD_GATE)
+if DESCARGAR_VCD:
+    descargar(VCD_GATE)"""))
 
 cells.append(md("## 6. Resultados del layout"))
 cells.append(code("""import re, subprocess, klayout.db as kdb
@@ -172,12 +224,19 @@ png = WORK / f'{MODULO}_cm05.png'
 lv.save_image(str(png), 1400, 1050)
 display(Image(str(png)))"""))
 
-cells.append(md("## 8. Descargar el GDS"))
-cells.append(code("""try:
-    from google.colab import files
-    files.download(str(gds))
-except ImportError:
-    print('Fuera de Colab: el GDS está en', gds)"""))
+cells.append(md("""## 8. Descargar resultados
+Un `.zip` con el Verilog y testbench, el GDS, la imagen del layout, los VCD de ambas simulaciones,
+el netlist post-ruteo, el reporte DRC (`.lyrdb`, se abre en KLayout) y el log de qflow."""))
+cells.append(code("""import zipfile
+ZIP = BASE / f'{MODULO}_cm05_resultados.zip'
+contenido = [RTL_V, TB_V, gds, png, WORK / f'{MODULO}_rtl.vcd', WORK / f'{MODULO}_postlayout.vcd',
+             WORK / f'{MODULO}_postroute.v', WORK / f'{MODULO}_cm05_drc.lyrdb', WORK / 'qflow.log']
+with zipfile.ZipFile(ZIP, 'w', zipfile.ZIP_DEFLATED) as z:
+    for f in contenido:
+        if f.exists():
+            z.write(f, f'{MODULO}_cm05/{f.name}')
+print(ZIP, f'({ZIP.stat().st_size/1e6:.1f} MB)')
+descargar(ZIP)"""))
 
 cells.append(md("""## Notas
 - **Liberty aproximado:** los tiempos y capacitancias de la biblioteca vienen de AMI C5 (0.5 µm); sirven para que yosys mapee la lógica, no para estimar el desempeño en CM05.

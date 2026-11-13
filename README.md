@@ -19,6 +19,10 @@ Abre el notebook con el botón **Open in Colab** y ejecuta todas las celdas: ins
 herramientas, toma un ejemplo (o tu propio Verilog y testbench), lo simula, corre el flujo completo,
 vuelve a simular el netlist extraído del layout y muestra las formas de onda y el layout.
 
+En Colab, el diseño y su testbench son archivos en `/content/diseno/` que se abren en el editor de Colab
+(con resaltado de sintaxis; guarda con Ctrl+S) o se suben desde el panel de archivos. Los VCD de ambas
+simulaciones se descargan solos, y al final se descarga un `.zip` con todos los resultados.
+
 En una máquina con Ubuntu 22.04 o 24.04:
 
 ```bash
