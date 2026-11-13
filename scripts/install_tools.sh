@@ -42,7 +42,10 @@ kl_ver() { QT_QPA_PLATFORM=offscreen klayout -v 2>/dev/null | awk '{print $2}'; 
 kl_ok() { command -v klayout > /dev/null && [ "$(printf '%s\n0.28\n' "$(kl_ver)" | sort -V | head -1)" = 0.28 ]; }
 if ! kl_ok; then
     DEB="klayout_${KLAYOUT_VER}-1_amd64.deb"
-    if curl -fsL -o "/tmp/$DEB" "https://www.klayout.org/downloads/Ubuntu-${UBU%%.*}/$DEB"; then
+    # klayout.org; si falla, copia de respaldo en el release del repositorio; si no, apt
+    if curl -fsL --retry 3 --retry-delay 5 -o "/tmp/$DEB" "https://www.klayout.org/downloads/Ubuntu-${UBU%%.*}/$DEB" \
+       || curl -fsL --retry 3 -o "/tmp/$DEB" \
+            "https://github.com/$REPO/releases/download/$TOOLS_TAG/klayout_${KLAYOUT_VER}-ubuntu${UBU%%.*}_amd64.deb"; then
         $SUDO apt-get install -y -qq "/tmp/$DEB" > /dev/null
     else
         $SUDO apt-get install -y -qq klayout > /dev/null

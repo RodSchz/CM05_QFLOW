@@ -41,3 +41,10 @@ jobs:
             gh release create "$TAG" --title "Herramientas precompiladas ($TAG)" \
               --notes "graywolf y qflow compilados en /opt/cm05_eda para Ubuntu 22.04 (Colab) y 24.04. Los usa scripts/install_tools.sh."
           gh release upload "$TAG" "$ASSET" --clobber
+      - name: Copia de respaldo del .deb oficial de KLayout
+        run: |
+          . /etc/os-release
+          V=0.30.13; U=${VERSION_ID%%.*}
+          curl -fsL --retry 5 --retry-delay 10 -o "klayout_${V}-ubuntu${U}_amd64.deb" \
+            "https://www.klayout.org/downloads/Ubuntu-${U}/klayout_${V}-1_amd64.deb"
+          gh release upload "$TAG" "klayout_${V}-ubuntu${U}_amd64.deb" --clobber
