@@ -9,7 +9,9 @@
 #         esta version de Ubuntu; si no existen, se compilan desde GitHub
 #   tecnologia cm05 dentro de qflow (install_tech.sh)
 #
-# Uso: [PREFIX=/opt/cm05_eda] install_tools.sh
+# Uso: [PREFIX=/opt/cm05_eda] [CM05_FORZAR=1] install_tools.sh
+# Si todo ya esta instalado (segunda ejecucion en la misma sesion de Colab) solo
+# reinstala la tecnologia cm05; CM05_FORZAR=1 obliga a reinstalar todo.
 set -euo pipefail
 PREFIX=${PREFIX:-/opt/cm05_eda}
 # qflow detecta graywolf/qrouter/etc. en el PATH al configurarse
@@ -22,6 +24,24 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 UBU=${VERSION_ID}                       # 22.04, 24.04, ...
 SUDO=""; [ "$(id -u)" = 0 ] || SUDO=sudo
 export DEBIAN_FRONTEND=noninteractive
+
+MARCA="$PREFIX/.cm05_instalado"
+kl_ver() { QT_QPA_PLATFORM=offscreen klayout -v 2>/dev/null | awk '{print $2}'; }
+kl_ok() { command -v klayout > /dev/null && [ "$(printf '%s\n0.28\n' "$(kl_ver)" | sort -V | head -1)" = 0.28 ]; }
+completo() {
+    [ -f "$MARCA" ] && [ "$(cat "$MARCA")" = "$TOOLS_TAG" ] || return 1
+    for t in iverilog yosys graywolf qrouter magic netgen qflow tcsh; do
+        command -v $t > /dev/null || return 1
+    done
+    kl_ok && python3 -c "import klayout.db, matplotlib" 2> /dev/null
+}
+if [ "${CM05_FORZAR:-0}" != 1 ] && completo; then
+    echo "== herramientas ya instaladas (KLayout $(kl_ver)); se omite la instalacion"
+    echo "== tecnologia cm05"
+    $SUDO "$HERE/install_tech.sh" "$PREFIX"
+    echo "Listo."
+    exit 0
+fi
 
 echo "== apt (Ubuntu $UBU)"
 $SUDO apt-get update -qq
@@ -38,8 +58,6 @@ python3 -c "import matplotlib" 2>/dev/null || pip install -q matplotlib 2>/dev/n
 
 echo "== KLayout ejecutable (DRC)"
 # El deck de CIDESI_CM05 necesita KLayout >= 0.28; apt en Ubuntu 22.04 trae 0.26.
-kl_ver() { QT_QPA_PLATFORM=offscreen klayout -v 2>/dev/null | awk '{print $2}'; }
-kl_ok() { command -v klayout > /dev/null && [ "$(printf '%s\n0.28\n' "$(kl_ver)" | sort -V | head -1)" = 0.28 ]; }
 if ! kl_ok; then
     DEB="klayout_${KLAYOUT_VER}-1_amd64.deb"
     # klayout.org; si falla, copia de respaldo en el release del repositorio; si no, apt
@@ -81,4 +99,5 @@ $SUDO ln -sf /usr/bin/netgen-lvs "$PREFIX/shims/netgen"
 echo "== tecnologia cm05"
 $SUDO "$HERE/install_tech.sh" "$PREFIX"
 
+echo "$TOOLS_TAG" | $SUDO tee "$MARCA" > /dev/null
 echo "Listo. Agrega al PATH: $PREFIX/bin:$PREFIX/shims"
