@@ -153,15 +153,20 @@ cells.append(md("""## 4. Flujo de Verilog a GDS
   (`'q'`) incluye todos sus bits; los pines que no menciones quedan libres. Los pines de cada lado se reparten a lo
   largo del lado. **Con 2 metales usa arriba/abajo**: a izquierda/derecha los pines compiten con las franjas de
   alimentación de los costados y el ruteo puede no cerrar. `None` = libres, o el `.cel2` que hayas subido.
-- `ORDEN_FIJO`: `True` respeta el orden de tu lista en cada lado; `False` deja que graywolf los permute."""))
+- `ORDEN_FIJO`: `True` respeta el orden de tu lista en cada lado; `False` deja que graywolf los permute.
+- `TAMANO_ETIQUETAS`: alto en µm de las etiquetas de los pines en el GDS (capas de texto 49/1 y 51/1 del PDK).
+  En KLayout de escritorio se ven a su tamaño real con la fuente de trazos
+  (*File → Setup → Display → Texts → Font: Stick Font*)."""))
 cells.append(code("""DENSIDAD   = None       # None = automático (0.7 -> 0.3); o p. ej. 0.5
 ASPECTO    = None       # alto/ancho; None = 0.75
 PINES      = None       # p. ej. {'arriba': ['clk', 'rst'], 'abajo': ['en', 'q']}
 ORDEN_FIJO = False
+TAMANO_ETIQUETAS = 20   # µm
 
 import json
 for k in ('CM05_DENSIDAD', 'CM05_ASPECTO', 'CM05_PINES'):
     os.environ.pop(k, None)
+os.environ['CM05_TEXTO'] = str(TAMANO_ETIQUETAS)
 if DENSIDAD:
     os.environ['CM05_DENSIDAD'] = str(DENSIDAD)
 if ASPECTO:
@@ -231,6 +236,7 @@ lv.load_layer_props(str(PDK_DIR / 'tech' / 'CIDESI_CM05' / 'CIDESI_CM05.lyp'))
 lv.max_hier()
 lv.set_config('background-color', '#ffffff')
 lv.set_config('grid-visible', 'false')
+lv.set_config('text-font', '1')       # fuente de trazos: respeta el tamaño de las etiquetas
 if ZOOM:
     lv.zoom_box(kdb.DBox(*ZOOM))
 else:

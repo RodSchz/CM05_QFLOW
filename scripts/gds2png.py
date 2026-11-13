@@ -9,4 +9,5 @@ if len(sys.argv) > 5:
 lv.max_hier(); lv.zoom_fit()
 lv.set_config("background-color", "#ffffff")
 lv.set_config("grid-visible", "true")
+lv.set_config("text-font", "1")   # fuente de trazos: respeta el tamano de las etiquetas
 lv.save_image(sys.argv[2], w, h)

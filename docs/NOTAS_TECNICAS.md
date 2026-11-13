@@ -47,6 +47,13 @@
 - Con 2 metales, los pines a izquierda/derecha (metal1) compiten con las franjas de alimentación vertical de
   los costados: lfsr8 con 8 salidas a la derecha no rutea ni a densidad 0.3; arriba/abajo (metal2) sí.
 
+## Etiquetas de pines
+- magic escribe las etiquetas de los puertos en las capas de dibujo (49/0, 51/0), con 0.3 µm de alto y rotadas.
+  `pin_labels.py` las pasa a las capas de texto del PDK (49/1 Metal1.text, 51/1 Metal2.text, las que lee el LVS
+  de CIDESI_CM05), horizontales y con alto configurable (`CM05_TEXTO`, 20 µm por omisión).
+- KLayout dibuja los textos con una fuente de mapa de bits de tamaño fijo; para verlos a su tamaño real:
+  File → Setup → Display → Texts → Font: Stick Font (en scripts: `text-font = 1`).
+
 ## Simulación
 - `cm05_stdcells.v` sale de `osu05_stdcells.v` quitando solo los módulos de celdas excluidas y pads; las
   primitivas (`udp_dff`, `udp_mux2`, …) se conservan. Los retardos de `specify` son de AMI C5, así que la

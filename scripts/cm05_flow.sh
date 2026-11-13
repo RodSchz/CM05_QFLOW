@@ -11,6 +11,7 @@
 # Configuracion opcional (variables de entorno):
 #   CM05_DENSIDAD=0.5     densidad de colocacion fija (sin: automatica 0.7 -> 0.3)
 #   CM05_ASPECTO=0.75     proporcion alto/ancho del chip (sin: la de la tecnologia)
+#   CM05_TEXTO=20         alto de las etiquetas de pines en el GDS, en um (capas 49/1, 51/1)
 #   CM05_PINES=pines.json posicion de pines por lado (ver make_cel2.py); si no se da
 #                         y existe <dir>/<modulo>.cel2, qflow lo usa tal cual
 # El proyecto debe tener source/<modulo>.v. Resultado: <modulo>_cm05.gds
@@ -68,6 +69,7 @@ echo "== GDS"
 echo "== Legalizador post-ruteo (regla 8.5)"
 python3 -I "$S/fix_route_vias.py" "${MOD}.gds" "$MOD" "${MOD}_cm05.gds"
 python3 -I "$S/netcompare.py" "${MOD}.gds" "${MOD}_cm05.gds" "$MOD" | tail -1
+python3 -I "$S/pin_labels.py" "${MOD}_cm05.gds" "$MOD" "${CM05_TEXTO:-20}"
 echo "== DRC CIDESI_CM05 (KLayout)"
 "$S/cm05_drc.sh" "${MOD}_cm05.gds" "$MOD" "$DECK"
 # Modo estricto (pruebas automaticas): falla si el DRC no queda en cero
