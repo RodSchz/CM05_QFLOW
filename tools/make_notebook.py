@@ -40,8 +40,13 @@ os.environ['PATH'] = f"{PREFIX}/bin:{PREFIX}/shims:" + os.environ['PATH']
 print('Carpeta de trabajo:', BASE)"""))
 cells.append(code(f"""%%bash
 set -e
-[ -d "$REPO_DIR" ] || git clone -q --depth 1 https://github.com/{REPO} "$REPO_DIR"
-[ -d "$PDK_DIR" ]  || git clone -q --depth 1 https://github.com/RodSchz/CIDESI_CM05 "$PDK_DIR"
+# clona, o actualiza si la sesion de Colab ya tenia una copia anterior
+for par in "$REPO_DIR https://github.com/{REPO}" "$PDK_DIR https://github.com/RodSchz/CIDESI_CM05"; do
+  set -- $par
+  if [ -d "$1/.git" ]; then git -C "$1" pull -q --ff-only || echo "AVISO: no se pudo actualizar $1"
+  else git clone -q --depth 1 "$2" "$1"; fi
+done
+echo "CM05_QFLOW: $(git -C "$REPO_DIR" log -1 --format='%h %cd' --date=short)"
 bash "$REPO_DIR/scripts/install_tools.sh" 2>&1 | grep -E "^==|binarios|compilando|Listo|ERROR|KLayout [0-9]"
 for t in iverilog yosys graywolf qrouter magic netgen qflow klayout; do printf "%-9s %s\\n" $t "$(command -v $t || echo FALTA)"; done"""))
 
