@@ -39,6 +39,13 @@ jobs:
             bash scripts/cm05_sim.sh "$d" "$RUNNER_TEMP/work/$d" "examples/$d/${d}_tb.v" ambos 2>&1 | grep -v "typ expression"
             echo "::endgroup::"
           done
+          echo "::group::lfsr8 con configuracion (pines arriba/abajo, alto/ancho 0.5)"
+          mkdir -p "$RUNNER_TEMP/work/cfg/source" && cp examples/lfsr8/lfsr8.v "$RUNNER_TEMP/work/cfg/source/"
+          echo '{"arriba": ["clk", "rst"], "abajo": ["en", "q"]}' > "$RUNNER_TEMP/pines.json"
+          CM05_PINES="$RUNNER_TEMP/pines.json" CM05_ASPECTO=0.5 \
+            bash scripts/cm05_flow.sh lfsr8 "$RUNNER_TEMP/work/cfg" "$DECK"
+          bash scripts/cm05_sim.sh lfsr8 "$RUNNER_TEMP/work/cfg" examples/lfsr8/lfsr8_tb.v ambos 2>&1 | grep -v "typ expression"
+          echo "::endgroup::"
       - name: GDS resultantes
         uses: actions/upload-artifact@v4
         with:

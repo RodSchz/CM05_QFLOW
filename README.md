@@ -19,9 +19,10 @@ Abre el notebook con el botón **Open in Colab** y ejecuta todas las celdas: ins
 herramientas, toma un ejemplo (o tu propio Verilog y testbench), lo simula, corre el flujo completo,
 vuelve a simular el netlist extraído del layout y muestra las formas de onda y el layout.
 
-En Colab, el diseño y su testbench son archivos en `/content/diseno/` que se abren en el editor de Colab
-(con resaltado de sintaxis; guarda con Ctrl+S) o se suben desde el panel de archivos. Los VCD de ambas
-simulaciones se descargan solos, y al final se descarga un `.zip` con todos los resultados.
+En Colab, el Verilog se escribe fuera (por ejemplo en VS Code) y se sube con un botón: el notebook detecta
+el módulo superior y el testbench (también diseños jerárquicos en varios archivos). Antes del flujo hay una
+celda de configuración para la densidad de colocación, la proporción alto/ancho del chip y el lado de cada
+pin de E/S. Los VCD de ambas simulaciones se descargan solos, y al final se descarga un `.zip` con todo.
 
 En una máquina con Ubuntu 22.04 o 24.04:
 
@@ -40,6 +41,11 @@ bash CM05_QFLOW/scripts/cm05_flow.sh counter trabajo/counter \
 bash CM05_QFLOW/scripts/cm05_sim.sh counter trabajo/counter CM05_QFLOW/examples/counter/counter_tb.v ambos
 python3 CM05_QFLOW/scripts/vcd_plot.py trabajo/counter/sim_gate/sim.vcd ondas.png "clk,rst,q" 0 3000
 ```
+
+**Configuración** (variables de entorno de `cm05_flow.sh`): `CM05_DENSIDAD=0.5` fija la densidad (sin ella
+es automática, 0.7 → 0.3); `CM05_ASPECTO=0.5` fija la proporción alto/ancho; `CM05_PINES=pines.json` fija el
+lado de los pines, p. ej. `{"arriba": ["clk", "rst"], "abajo": ["en", "q"]}` (ver `scripts/make_cel2.py`).
+Con 2 metales conviene poner los pines arriba/abajo: a los costados compiten con las franjas de alimentación.
 
 **Testbenches:** el testbench es el módulo superior, escribe `sim.vcd` con `$dumpfile` y reporta con
 `$display`; una línea que empiece con `RESULTADO:` se muestra como resumen. La simulación post-layout es
@@ -80,6 +86,8 @@ AND2X1/2, OR2X1/2, AOI21X1, AOI22X1, OAI21X1, OAI22X1, MUX2X1, TBUFX1/2, DFFPOSX
 | `scripts/cm05_flow.sh` | Flujo completo: qflow → GDS → legalizador → equivalencia → DRC |
 | `scripts/cm05_sim.sh` | Simulación RTL y post-layout con Icarus Verilog, y comparación de trazas |
 | `scripts/vcd_plot.py` | Formas de onda de un VCD con matplotlib |
+| `scripts/cargar_diseno.py` | Detecta módulo superior y testbench en los archivos subidos |
+| `scripts/make_cel2.py`, `scripts/spread_pins.py` | Posición de pines por lado y reparto sobre pistas |
 | `scripts/install_tools.sh` | Instalación de herramientas (usa binarios del release si existen) |
 | `scripts/build_cm05_tech.sh` | Reconstruye `tech/cm05` desde `osu050` con todas las correcciones |
 | `docs/NOTAS_TECNICAS.md` | Decisiones y hallazgos de la adaptación |

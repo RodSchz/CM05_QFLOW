@@ -8,6 +8,11 @@
 #   4. Equivalencia de netlist antes/despues del legalizador (netcompare.py)
 #   5. DRC con el deck oficial de CIDESI_CM05 en KLayout (cm05_drc.sh)
 # Uso: [CM05_STRICT=1] cm05_flow.sh <modulo> <dir_proyecto> <drc.lydrc> [PREFIX]
+# Configuracion opcional (variables de entorno):
+#   CM05_DENSIDAD=0.5     densidad de colocacion fija (sin: automatica 0.7 -> 0.3)
+#   CM05_ASPECTO=0.75     proporcion alto/ancho del chip (sin: la de la tecnologia)
+#   CM05_PINES=pines.json posicion de pines por lado (ver make_cel2.py); si no se da
+#                         y existe <dir>/<modulo>.cel2, qflow lo usa tal cual
 # El proyecto debe tener source/<modulo>.v. Resultado: <modulo>_cm05.gds
 set -euo pipefail
 MOD=$1; DIR=$2; DECK=$3; PREFIX=${4:-/opt/cm05_eda}
@@ -17,18 +22,41 @@ cd "$DIR"
 echo "== qflow: sintesis"
 qflow synthesize -T cm05 "$MOD" > qflow.log 2>&1 || true
 grep -A40 "Number of cells" log/synth.log | grep -E "^\s+[A-Z]+[A-Z0-9]*\s+[0-9]+" || true
+# Proporcion del chip: en el .par del proyecto (qflow lo prefiere al de la tecnologia)
+cp "$PREFIX/share/qflow/tech/cm05/cm05.par" "${MOD}.par"   # se reinicia en cada corrida
+if [ -n "${CM05_ASPECTO:-}" ]; then
+    sed -i "s/^TWMC\*chip.aspect.ratio.*/TWMC*chip.aspect.ratio : $CM05_ASPECTO/" "${MOD}.par"
+    echo "   proporcion alto/ancho: $CM05_ASPECTO"
+fi
+# Posicion de pines
+if [ -n "${CM05_PINES:-}" ]; then
+    python3 -I "$S/make_cel2.py" "${MOD}.rtlnopwr.v" "$CM05_PINES" "${MOD}.cel2"
+elif [ -f "${MOD}.cel2" ]; then
+    echo "   posicion de pines: ${MOD}.cel2"
+fi
 # Con 2 metales el ruteo depende del espacio libre entre celdas: si falla se
 # reintenta con menor densidad de colocacion. (No usar rowSep: graywolf/qflow
 # enciman filas y el LVS falla.)
+DENSIDADES="0.7 0.5 0.4 0.3"
+[ -n "${CM05_DENSIDAD:-}" ] && DENSIDADES="$CM05_DENSIDAD"
 ok=0
-for DN in 0.7 0.5 0.4 0.3; do
+for DN in $DENSIDADES; do
     sed -i '/initial_density/d' project_vars.sh; echo "set initial_density = $DN" >> project_vars.sh
-    qflow place route -T cm05 "$MOD" >> qflow.log 2>&1 || true
+    qflow place -T cm05 "$MOD" >> qflow.log 2>&1 || true
+    if [ -f "${MOD}.cel2" ]; then
+        # con lados fijados graywolf amontona los pines: repartirlos sobre pistas
+        python3 -I "$S/spread_pins.py" "${MOD}.def" $( [ -f "${MOD}_unroute.def" ] && echo "${MOD}_unroute.def" )
+    fi
+    qflow route -T cm05 "$MOD" >> qflow.log 2>&1 || true
     r=$(grep -E "Final: " log/route.log | tail -1)
     echo "   densidad=$DN -> $r"
     if echo "$r" | grep -q "No failed routes"; then ok=1; break; fi
 done
-[ $ok = 1 ] || { echo "ERROR: el ruteo no se completo con ninguna combinacion (ver log/route.log)"; exit 1; }
+if [ $ok = 0 ]; then
+    echo "ERROR: el ruteo no se completo (ver log/route.log). Opciones: bajar la densidad"
+    echo "       (o dejarla automatica), cambiar la proporcion del chip o liberar pines fijados."
+    exit 1
+fi
 echo "== qflow: migracion y LVS"
 qflow migrate lvs -T cm05 "$MOD" >> qflow.log 2>&1 || true
 grep -hE "Circuits match|Total errors" qflow.log | tail -2

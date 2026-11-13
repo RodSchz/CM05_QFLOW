@@ -47,18 +47,17 @@ for t in iverilog yosys graywolf qrouter magic netgen qflow klayout; do printf "
 
 cells.append(md("""## 2. Tu diseño y su testbench
 
-El diseño y su testbench son **archivos `.v`** en la carpeta `diseno/` (panel de archivos 📁 a la izquierda).
-Al ejecutar la celda se abren en el **editor de Colab** (panel derecho), con resaltado de sintaxis:
-edítalos ahí y guarda con **Ctrl+S**. Las celdas siguientes siempre leen la versión guardada.
+Escribe y revisa tu Verilog en tu editor (por ejemplo **VS Code** con una extensión de Verilog) y súbelo aquí:
 
-- `MODULO` puede ser un ejemplo (`'counter'`, `'lfsr8'`, `'alu4'`, `'pwm8'`, con testbench autoverificable)
-  o el nombre de tu módulo: si `diseno/<MODULO>.v` no existe, se crea una plantilla.
-- También puedes **subir tus archivos** a `diseno/` arrastrándolos al panel de archivos
-  (`<MODULO>.v` y `<MODULO>_tb.v`).
-- Tus cambios no se sobrescriben al volver a ejecutar la celda; `RESTAURAR = True` vuelve a copiar el ejemplo.
+- Con `EJEMPLO = None`, al ejecutar la celda aparece el botón **Elegir archivos**: selecciona tu(s) `.v` de diseño
+  (puedes incluir submódulos, en uno o varios archivos) y tu testbench. Opcionalmente, un `.cel2` con la posición de pines.
+- El notebook detecta solo cuál es el **testbench** (archivo `*_tb.v`, o un módulo sin puertos) y cuál es el
+  **módulo superior** (el que ningún otro instancia), y deja todo en `diseno/` (panel de archivos 📁).
+- Si corriges algo, vuelve a ejecutar esta celda y sube la versión nueva: reemplaza a la anterior.
+- Para probar con un ejemplo, pon su nombre en `EJEMPLO` (`'counter'`, `'lfsr8'`, `'alu4'`, `'pwm8'`).
 
-**El testbench** debe ser el módulo superior, escribir las ondas con `$dumpfile("sim.vcd")` y reportar con
-`$display`; si imprime una línea que empiece con `RESULTADO:`, el notebook la muestra como resumen.
+**El testbench** debe ser el módulo superior de la simulación, escribir las ondas con `$dumpfile("sim.vcd")` y
+reportar con `$display`; si imprime una línea que empiece con `RESULTADO:`, el notebook la muestra como resumen.
 Cambia las entradas y lee las salidas en el **flanco de bajada** del reloj (`@(negedge clk)`): si una entrada
 cambia en el mismo instante que el flanco de subida, RTL y post-layout pueden resolver el empate distinto.
 
@@ -66,47 +65,34 @@ cambia en el mismo instante que el flanco de subida, RTL y post-layout pueden re
 - Solo **reset síncrono** (`always @(posedge clk) if (rst) ...`): el flip-flop con set/reset asíncrono (DFFSR) no está disponible porque viola la regla 8.5 de CM05.
 - XOR/XNOR, sumadores completos (FAX1/HAX1) y latches tampoco están; yosys los arma con compuertas simples.
 - Celdas disponibles: INV, BUF, NAND2/3, NOR2/3, AND2, OR2, AOI21/22, OAI21/22, MUX2, TBUF y DFFPOSX1."""))
-cells.append(code('''MODULO = 'counter'      # ejemplo ('counter', 'lfsr8', 'alu4', 'pwm8') o el nombre de tu módulo
-RESTAURAR = False       # True: vuelve a copiar el ejemplo encima de tus cambios
+cells.append(code('''EJEMPLO = 'counter'      # 'counter', 'lfsr8', 'alu4', 'pwm8', o None para subir tus archivos
 
-import shutil
-PLANTILLA_RTL = """// MODULO: contador de 4 bits con reset sincrono (plantilla)
-module MODULO (input clk, input rst, input en, output reg [3:0] q);
-  always @(posedge clk)
-    if (rst)     q <= 4'd0;
-    else if (en) q <= q + 4'd1;
-endmodule
-"""
-PLANTILLA_TB = """// Testbench de MODULO (plantilla)
-`timescale 1ns/1ps
-module tb;
-  reg clk = 0, rst = 1, en = 1;
-  wire [3:0] q;
-  MODULO dut (.clk(clk), .rst(rst), .en(en), .q(q));
-  always #50 clk = ~clk;                       // 10 MHz
-  initial begin
-    $dumpfile("sim.vcd"); $dumpvars(0, tb);
-    repeat (3) @(negedge clk);                 // cambia entradas en el flanco de bajada
-    rst = 0;
-    repeat (20) begin @(negedge clk); $display("q=%0d", q); end
-    $display("RESULTADO: simulacion terminada");
-    $finish;
-  end
-endmodule
-"""
+import re, shutil, sys
+sys.path.insert(0, str(REPO_DIR / 'scripts'))
+from cargar_diseno import preparar
 
 DISENO = BASE / 'diseno'
 DISENO.mkdir(exist_ok=True)
-RTL_V, TB_V = DISENO / f'{MODULO}.v', DISENO / f'{MODULO}_tb.v'
-ejemplo = REPO_DIR / 'examples' / MODULO
-for src, dst in ((ejemplo / f'{MODULO}.v', RTL_V), (ejemplo / f'{MODULO}_tb.v', TB_V)):
-    if src.exists() and (RESTAURAR or not dst.exists()):
-        shutil.copy(src, dst)
-if not RTL_V.exists():
-    RTL_V.write_text(PLANTILLA_RTL.replace('MODULO', MODULO))
-if not TB_V.exists():
-    TB_V.write_text(PLANTILLA_TB.replace('MODULO', MODULO))
+if EJEMPLO:
+    archivos = [REPO_DIR / 'examples' / EJEMPLO / f'{EJEMPLO}.v',
+                REPO_DIR / 'examples' / EJEMPLO / f'{EJEMPLO}_tb.v']
+else:
+    SUBIDOS = BASE / 'subidos'          # copia de lo que subiste en esta ejecucion
+    try:
+        from google.colab import files as colab_files
+        subidos = colab_files.upload()
+        shutil.rmtree(SUBIDOS, ignore_errors=True); SUBIDOS.mkdir()
+        archivos = []
+        for nombre, datos in subidos.items():
+            limpio = re.sub(r' \\(\\d+\\)(?=\\.\\w+$)', '', nombre)   # "x (1).v" -> "x.v"
+            (SUBIDOS / limpio).write_bytes(datos)
+            archivos.append(SUBIDOS / limpio)
+            pathlib.Path(nombre).unlink(missing_ok=True)       # files.upload tambien lo deja en la carpeta actual
+    except ImportError:                 # fuera de Colab: deja tus archivos en BASE/subidos
+        archivos = sorted(SUBIDOS.glob('*'))
 
+MODULO = preparar(archivos, DISENO)
+RTL_V, TB_V = DISENO / f'{MODULO}.v', DISENO / f'{MODULO}_tb.v'
 WORK = BASE / 'work' / MODULO
 (WORK / 'source').mkdir(parents=True, exist_ok=True)
 os.environ.update(MODULO=MODULO, WORK=str(WORK), DISENO=str(DISENO))
@@ -118,22 +104,16 @@ def descargar(*rutas):
         for r in rutas:
             colab_files.download(str(r))
     except ImportError:
-        print('Fuera de Colab; archivos en:', *map(str, rutas))
-
-try:
-    from google.colab import files as colab_files
-    colab_files.view(str(RTL_V)); colab_files.view(str(TB_V))
-    print(f'Abiertos en el editor de Colab: {RTL_V.name} y {TB_V.name}  (guarda con Ctrl+S)')
-except ImportError:
-    print('Edita los archivos en', DISENO)'''))
-cells.append(code("""# Vista de solo lectura con resaltado (vuelve a ejecutar tras guardar cambios)
+        print('Fuera de Colab; archivos en:', *map(str, rutas))'''))
+cells.append(code("""# Lo que se va a usar (solo lectura, con resaltado)
 from IPython.display import HTML, display
 from pygments import highlight
 from pygments.lexers import VerilogLexer
 from pygments.formatters import HtmlFormatter
 _fmt = HtmlFormatter(noclasses=True, style='friendly', linenos='inline')
 for f in (RTL_V, TB_V):
-    display(HTML(f'<b>{f.name}</b>' + highlight(f.read_text(), VerilogLexer(), _fmt)))"""))
+    if f.exists():
+        display(HTML(f'<b>{f.name}</b>' + highlight(f.read_text(), VerilogLexer(), _fmt)))"""))
 
 cells.append(md("""## 3. Simulación RTL
 Simula tu Verilog antes de mandarlo a layout. En la gráfica de ondas puedes elegir señales con `SENALES`
@@ -145,9 +125,7 @@ bash "$REPO_DIR/scripts/cm05_sim.sh" "$MODULO" "$WORK" "$WORK/${MODULO}_tb.v" rt
 echo "--- primeras lineas de la salida del testbench:"
 head -12 "$WORK/sim_rtl/salida.txt"
 """))
-cells.append(code("""import sys
-sys.path.insert(0, str(REPO_DIR / 'scripts'))
-import matplotlib.pyplot as plt
+cells.append(code("""import matplotlib.pyplot as plt
 from vcd_plot import plot as ondas
 SENALES = None          # p. ej. ['clk', 'rst', 'q']
 T0, T1 = 0, 3000        # ventana en ns (None = completa)
@@ -161,8 +139,40 @@ if DESCARGAR_VCD:
     descargar(VCD_RTL)"""))
 
 cells.append(md("""## 4. Flujo de Verilog a GDS
-Si el ruteo no cierra, el script reintenta con menor densidad de colocación (0.7 → 0.5 → 0.4 → 0.3):
-con solo dos metales el ruteo necesita espacio libre entre celdas."""))
+
+**Configuración** (celda siguiente):
+- `DENSIDAD`: fracción del área ocupada por celdas. `None` = automático: prueba 0.7 → 0.5 → 0.4 → 0.3 hasta que
+  el ruteo cierra (con solo dos metales el ruteo necesita espacio libre). Un valor fijo (0.3–0.8) hace un solo intento.
+- `ASPECTO`: proporción **alto/ancho** del chip (`None` = 0.75). Por ejemplo 0.4 da un chip ancho y bajo; 2.0, uno alto.
+- `PINES`: lado de cada pin de E/S, p. ej. `{'arriba': ['clk', 'rst'], 'abajo': ['en', 'q']}`. Un bus sin índice
+  (`'q'`) incluye todos sus bits; los pines que no menciones quedan libres. Los pines de cada lado se reparten a lo
+  largo del lado. **Con 2 metales usa arriba/abajo**: a izquierda/derecha los pines compiten con las franjas de
+  alimentación de los costados y el ruteo puede no cerrar. `None` = libres, o el `.cel2` que hayas subido.
+- `ORDEN_FIJO`: `True` respeta el orden de tu lista en cada lado; `False` deja que graywolf los permute."""))
+cells.append(code("""DENSIDAD   = None       # None = automático (0.7 -> 0.3); o p. ej. 0.5
+ASPECTO    = None       # alto/ancho; None = 0.75
+PINES      = None       # p. ej. {'arriba': ['clk', 'rst'], 'abajo': ['en', 'q']}
+ORDEN_FIJO = False
+
+import json
+for k in ('CM05_DENSIDAD', 'CM05_ASPECTO', 'CM05_PINES'):
+    os.environ.pop(k, None)
+if DENSIDAD:
+    os.environ['CM05_DENSIDAD'] = str(DENSIDAD)
+if ASPECTO:
+    os.environ['CM05_ASPECTO'] = str(ASPECTO)
+cel2 = WORK / f'{MODULO}.cel2'
+cel2.unlink(missing_ok=True)
+if PINES:
+    lados = {'izquierda', 'derecha', 'arriba', 'abajo'}
+    malos = set(PINES) - lados
+    assert not malos, f'lados validos: {sorted(lados)}; revisa {sorted(malos)}'
+    (WORK / 'pines.json').write_text(json.dumps({**PINES, 'orden_fijo': ORDEN_FIJO}))
+    os.environ['CM05_PINES'] = str(WORK / 'pines.json')
+elif (DISENO / f'{MODULO}.cel2').exists():
+    shutil.copy(DISENO / f'{MODULO}.cel2', cel2)
+print('densidad:', DENSIDAD or 'automática', '| alto/ancho:', ASPECTO or 0.75,
+      '| pines:', PINES or (f'{cel2.name} (subido)' if cel2.exists() else 'libres'))"""))
 cells.append(code("""%%bash
 cp "$DISENO/$MODULO.v" "$WORK/source/" && cp "$DISENO/${MODULO}_tb.v" "$WORK/"
 DECK="$PDK_DIR/tech/CIDESI_CM05/drc/drc.lydrc"

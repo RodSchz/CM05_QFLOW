@@ -38,6 +38,15 @@
 - `fix_route_vias.py` reubica las pocas vías de ruteo que aún violan 8.5 y `netcompare.py` confirma que el
   netlist extraído no cambia.
 
+## Configuración de colocación
+- Proporción del chip: `TWMC*chip.aspect.ratio` en el `.par` del proyecto (alto/ancho; el resultado es
+  aproximado porque el alto se cuantiza en filas de 250 µm).
+- Pines: `<modulo>.cel2` con un `padgroup` por lado (`restrict side L/R/T/B`). Con restricciones de lado
+  graywolf amontona los pines (a 5 µm), así que `spread_pins.py` los reparte sobre pistas a lo largo del lado
+  en el DEF colocado, entre `qflow place` y `qflow route`. `sidespace` no sirvió para repartirlos.
+- Con 2 metales, los pines a izquierda/derecha (metal1) compiten con las franjas de alimentación vertical de
+  los costados: lfsr8 con 8 salidas a la derecha no rutea ni a densidad 0.3; arriba/abajo (metal2) sí.
+
 ## Simulación
 - `cm05_stdcells.v` sale de `osu05_stdcells.v` quitando solo los módulos de celdas excluidas y pads; las
   primitivas (`udp_dff`, `udp_mux2`, …) se conservan. Los retardos de `specify` son de AMI C5, así que la
