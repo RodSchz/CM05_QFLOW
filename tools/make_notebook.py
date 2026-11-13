@@ -48,8 +48,9 @@ for t in iverilog yosys graywolf qrouter magic netgen qflow klayout; do printf "
 cells.append(md("""## 2. Tu diseño y su testbench
 
 El diseño y su testbench son **archivos `.v`** en la carpeta `diseno/` (panel de archivos 📁 a la izquierda).
-Al ejecutar la celda se abren en el **editor de Colab** (panel derecho), con resaltado de sintaxis:
-edítalos ahí y guarda con **Ctrl+S**. Las celdas siguientes siempre leen la versión guardada.
+Al ejecutar la celda aparecen abajo en un **editor con resaltado de Verilog**: edítalos ahí y pulsa
+**Guardar** (o Ctrl+S con el cursor dentro del editor). Las celdas siguientes siempre leen la versión guardada.
+(El visor de archivos de Colab también los abre con doble clic, pero sin colores.)
 
 - `MODULO` puede ser un ejemplo (`'counter'`, `'lfsr8'`, `'alu4'`, `'pwm8'`, con testbench autoverificable)
   o el nombre de tu módulo: si `diseno/<MODULO>.v` no existe, se crea una plantilla.
@@ -120,21 +121,11 @@ def descargar(*rutas):
     except ImportError:
         print('Fuera de Colab; archivos en:', *map(str, rutas))
 
-try:
-    from google.colab import files as colab_files
-    colab_files.view(str(RTL_V)); colab_files.view(str(TB_V))
-    print(f'Abiertos en el editor de Colab: {RTL_V.name} y {TB_V.name}  (guarda con Ctrl+S)')
-except ImportError:
-    print('Edita los archivos en', DISENO)'''))
-cells.append(code("""# Vista de solo lectura con resaltado (vuelve a ejecutar tras guardar cambios)
-from IPython.display import HTML, display
-from pygments import highlight
-from pygments.lexers import VerilogLexer
-from pygments.formatters import HtmlFormatter
-_fmt = HtmlFormatter(noclasses=True, style='friendly', linenos='inline')
-for f in (RTL_V, TB_V):
-    display(HTML(f'<b>{f.name}</b>' + highlight(f.read_text(), VerilogLexer(), _fmt)))"""))
-
+import sys
+sys.path.insert(0, str(REPO_DIR / 'scripts'))
+from verilog_editor import editor
+editor(RTL_V)
+editor(TB_V)'''))
 cells.append(md("""## 3. Simulación RTL
 Simula tu Verilog antes de mandarlo a layout. En la gráfica de ondas puedes elegir señales con `SENALES`
 (p. ej. `['clk', 'rst', 'q']`; `None` = todas las del testbench) y una ventana de tiempo en ns con `T0`, `T1`.
