@@ -30,9 +30,11 @@ $SUDO apt-get install -y -qq iverilog magic qrouter yosys netgen-lvs tcsh curl \
 
 echo "== pip: klayout, matplotlib"
 pip install -q klayout 2>/dev/null || pip install -q --break-system-packages klayout
-# matplotlib ya viene en Colab; si falta, se prefiere el paquete del sistema (pip choca con el numpy de Debian)
-python3 -c "import matplotlib" 2>/dev/null || $SUDO apt-get install -y -qq python3-matplotlib > /dev/null \
-    || pip install -q matplotlib || pip install -q --break-system-packages matplotlib
+# matplotlib ya viene en Colab. Si falta: pip normal (Ubuntu 22.04; la version de apt es muy vieja
+# para Jupyter), luego apt (24.04, donde pip no instala en el sistema) y al final pip forzado
+python3 -c "import matplotlib" 2>/dev/null || pip install -q matplotlib 2>/dev/null \
+    || $SUDO apt-get install -y -qq python3-matplotlib > /dev/null \
+    || pip install -q --break-system-packages matplotlib
 
 echo "== KLayout ejecutable (DRC)"
 # El deck de CIDESI_CM05 necesita KLayout >= 0.28; apt en Ubuntu 22.04 trae 0.26.
