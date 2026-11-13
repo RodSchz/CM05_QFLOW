@@ -19,8 +19,8 @@ Abre el notebook con el botón **Open in Colab** y ejecuta todas las celdas: ins
 herramientas, toma un ejemplo (o tu propio Verilog y testbench), lo simula, corre el flujo completo,
 vuelve a simular el netlist extraído del layout y muestra las formas de onda y el layout.
 
-En Colab, el diseño y su testbench son archivos en `/content/diseno/` que se editan dentro del notebook en
-un editor con resaltado de Verilog (botón Guardar o Ctrl+S), o se suben desde el panel de archivos. Los VCD de ambas
+En Colab, el diseño y su testbench son archivos en `/content/diseno/` que se abren en el editor de Colab
+(con resaltado de sintaxis; guarda con Ctrl+S) o se suben desde el panel de archivos. Los VCD de ambas
 simulaciones se descargan solos, y al final se descarga un `.zip` con todos los resultados.
 
 En una máquina con Ubuntu 22.04 o 24.04:
@@ -80,7 +80,6 @@ AND2X1/2, OR2X1/2, AOI21X1, AOI22X1, OAI21X1, OAI22X1, MUX2X1, TBUFX1/2, DFFPOSX
 | `scripts/cm05_flow.sh` | Flujo completo: qflow → GDS → legalizador → equivalencia → DRC |
 | `scripts/cm05_sim.sh` | Simulación RTL y post-layout con Icarus Verilog, y comparación de trazas |
 | `scripts/vcd_plot.py` | Formas de onda de un VCD con matplotlib |
-| `scripts/verilog_editor.py` | Editor de Verilog con resaltado (CodeMirror) para Colab |
 | `scripts/install_tools.sh` | Instalación de herramientas (usa binarios del release si existen) |
 | `scripts/build_cm05_tech.sh` | Reconstruye `tech/cm05` desde `osu050` con todas las correcciones |
 | `docs/NOTAS_TECNICAS.md` | Decisiones y hallazgos de la adaptación |
