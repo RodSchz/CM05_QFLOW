@@ -61,7 +61,8 @@ Escribe y revisa tu Verilog en tu editor (por ejemplo **VS Code** con una extens
 - Si corriges algo, vuelve a ejecutar esta celda y sube la versión nueva: reemplaza a la anterior.
 - Para probar con un ejemplo, pon su nombre en `EJEMPLO` (`'counter'`, `'lfsr8'`, `'alu4'`, `'pwm8'`).
 
-**El testbench** debe ser el módulo superior de la simulación, escribir las ondas con `$dumpfile("sim.vcd")` y
+**El testbench** debe ser el módulo superior de la simulación, guardar las ondas con `$dumpvars` (el nombre que
+pongas en `$dumpfile` no importa: sirve tal cual el `dump.vcd` de EDA Playground; se aceptan `.v` y `.sv`) y
 reportar con `$display`; si imprime una línea que empiece con `RESULTADO:`, el notebook la muestra como resumen.
 Cambia las entradas y lee las salidas en el **flanco de bajada** del reloj (`@(negedge clk)`): si una entrada
 cambia en el mismo instante que el flanco de subida, RTL y post-layout pueden resolver el empate distinto.
@@ -123,7 +124,7 @@ for f in (RTL_V, TB_V):
 cells.append(md("""## 3. Simulación RTL
 Simula tu Verilog antes de mandarlo a layout. En la gráfica de ondas puedes elegir señales con `SENALES`
 (p. ej. `['clk', 'rst', 'q']`; `None` = todas las del testbench) y una ventana de tiempo en ns con `T0`, `T1`.
-Con `DESCARGAR_VCD = True` el archivo de ondas (`<modulo>_rtl.vcd`) se descarga solo, para abrirlo en GTKWave."""))
+El archivo de ondas (`<modulo>_rtl.vcd`) va en el `.zip` de resultados del final, para abrirlo en GTKWave o Surfer."""))
 cells.append(code("""%%bash
 cp "$DISENO/$MODULO.v" "$WORK/source/" && cp "$DISENO/${MODULO}_tb.v" "$WORK/"
 bash "$REPO_DIR/scripts/cm05_sim.sh" "$MODULO" "$WORK" "$WORK/${MODULO}_tb.v" rtl 2>&1 | grep -v "typ expression"
@@ -134,14 +135,15 @@ cells.append(code("""import matplotlib.pyplot as plt
 from vcd_plot import plot as ondas
 SENALES = None          # p. ej. ['clk', 'rst', 'q']
 T0, T1 = 0, 3000        # ventana en ns (None = completa)
-DESCARGAR_VCD = True
 
-ondas(str(WORK / 'sim_rtl' / 'sim.vcd'), SENALES, T0, T1)
-plt.show()
 VCD_RTL = WORK / f'{MODULO}_rtl.vcd'
-shutil.copy(WORK / 'sim_rtl' / 'sim.vcd', VCD_RTL)
-if DESCARGAR_VCD:
-    descargar(VCD_RTL)"""))
+VCD_RTL.unlink(missing_ok=True)
+if (WORK / 'sim_rtl' / 'sim.vcd').exists():
+    ondas(str(WORK / 'sim_rtl' / 'sim.vcd'), SENALES, T0, T1)
+    plt.show()
+    shutil.copy(WORK / 'sim_rtl' / 'sim.vcd', VCD_RTL)
+else:
+    print('Sin ondas: el testbench no tiene $dumpvars (o la simulación no compiló; revisa la celda anterior).')"""))
 
 cells.append(md("""## 4. Flujo de Verilog a GDS
 
@@ -192,19 +194,22 @@ cells.append(md("""## 5. Simulación post-layout
 El mismo testbench sobre el netlist que quedó en el layout ruteado (`<modulo>_postroute.v`, con los modelos
 de las celdas cm05). Las trazas de texto deben ser **idénticas** a las de la simulación RTL.
 La simulación es funcional (sin retardos): los tiempos del liberty son de AMI C5, no de CM05.
-Con `DESCARGAR_VCD = True` se descarga `<modulo>_postlayout.vcd`."""))
+`<modulo>_postlayout.vcd` va en el `.zip` de resultados."""))
 cells.append(code("""%%bash
 cp "$DISENO/${MODULO}_tb.v" "$WORK/"
 bash "$REPO_DIR/scripts/cm05_sim.sh" "$MODULO" "$WORK" "$WORK/${MODULO}_tb.v" ambos 2>&1 | grep -v "typ expression"
 """))
-cells.append(code("""fig, axs = plt.subplots(2, 1, figsize=(14, 9), sharex=True)
-ondas(str(WORK / 'sim_rtl' / 'sim.vcd'), SENALES, T0, T1, ax=axs[0]); axs[0].set_title('RTL')
-ondas(str(WORK / 'sim_gate' / 'sim.vcd'), SENALES, T0, T1, ax=axs[1]); axs[1].set_title('Post-layout (compuertas cm05)')
-plt.tight_layout(); plt.show()
-VCD_GATE = WORK / f'{MODULO}_postlayout.vcd'
-shutil.copy(WORK / 'sim_gate' / 'sim.vcd', VCD_GATE)
-if DESCARGAR_VCD:
-    descargar(VCD_GATE)"""))
+cells.append(code("""VCD_GATE = WORK / f'{MODULO}_postlayout.vcd'
+VCD_GATE.unlink(missing_ok=True)
+vr, vg = WORK / 'sim_rtl' / 'sim.vcd', WORK / 'sim_gate' / 'sim.vcd'
+if vr.exists() and vg.exists():
+    fig, axs = plt.subplots(2, 1, figsize=(14, 9), sharex=True)
+    ondas(str(vr), SENALES, T0, T1, ax=axs[0]); axs[0].set_title('RTL')
+    ondas(str(vg), SENALES, T0, T1, ax=axs[1]); axs[1].set_title('Post-layout (compuertas cm05)')
+    plt.tight_layout(); plt.show()
+    shutil.copy(vg, VCD_GATE)
+else:
+    print('Sin ondas: el testbench no tiene $dumpvars (o la simulación no compiló; revisa la celda anterior).')"""))
 
 cells.append(md("## 6. Resultados del layout"))
 cells.append(code("""import re, subprocess, klayout.db as kdb

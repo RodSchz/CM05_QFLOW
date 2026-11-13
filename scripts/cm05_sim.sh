@@ -4,8 +4,10 @@
 #   gate : el netlist post-ruteo que quedo en el layout (<modulo>_postroute.v)
 #          con los modelos de celdas cm05 (simulacion funcional, sin retardos)
 #   ambos: corre las dos y compara sus trazas de texto: deben ser identicas
-# El testbench debe ser el modulo superior, escribir sim.vcd ($dumpfile) y
+# El testbench debe ser el modulo superior, guardar ondas con $dumpvars y
 # reportar con $display; las lineas "RESULTADO:" se muestran al final.
+# El VCD puede tener cualquier nombre ($dumpfile("dump.vcd") de EDA Playground,
+# o ninguno): se deja siempre como sim_<rtl|gate>/sim.vcd.
 # Uso: cm05_sim.sh <modulo> <dir_proyecto> <testbench.v> [rtl|gate|ambos] [PREFIX]
 set -euo pipefail
 MOD=$1; DIR=$(realpath "$2"); TB=$(realpath "$3"); MODO=${4:-ambos}; PREFIX=${5:-/opt/cm05_eda}
@@ -15,7 +17,20 @@ sim() {   # sim <nombre> <archivos...>
     local d="$DIR/sim_$1"; shift
     mkdir -p "$d"
     iverilog -g2012 -o "$d/a.out" "$TB" "$@" 2> "$d/compila.log" || { cat "$d/compila.log"; return 1; }
+    rm -f "$d"/*.vcd
     (cd "$d" && vvp -n a.out | grep -v "^VCD info" > salida.txt)
+    # Normaliza el nombre del archivo de ondas a sim.vcd
+    if [ ! -f "$d/sim.vcd" ]; then
+        local v; v=$(ls -t "$d"/*.vcd 2>/dev/null | head -1 || true)
+        if [ -n "$v" ]; then
+            mv "$v" "$d/sim.vcd"
+            echo "   (ondas: $(basename "$v") -> sim.vcd)"
+        else
+            echo "AVISO: el testbench no escribio ondas; agrega \$dumpvars(0, <tb>) para verlas"
+        fi
+    fi
+    local n; n=$(ls "$d"/*.vcd 2>/dev/null | grep -vc '/sim.vcd$' || true)
+    [ "${n:-0}" -gt 0 ] && echo "AVISO: el testbench escribio varios VCD; se usa sim.vcd" || true
 }
 
 if [[ $MODO == rtl || $MODO == ambos ]]; then

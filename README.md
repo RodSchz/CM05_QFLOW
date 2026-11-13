@@ -22,7 +22,7 @@ vuelve a simular el netlist extraído del layout y muestra las formas de onda y 
 En Colab, el Verilog se escribe fuera (por ejemplo en VS Code) y se sube con un botón: el notebook detecta
 el módulo superior y el testbench (también diseños jerárquicos en varios archivos). Antes del flujo hay una
 celda de configuración para la densidad de colocación, la proporción alto/ancho del chip y el lado de cada
-pin de E/S. Los VCD de ambas simulaciones se descargan solos, y al final se descarga un `.zip` con todo.
+pin de E/S. Al final se descarga un solo `.zip` con todo (incluidos los VCD de ambas simulaciones).
 
 En una máquina con Ubuntu 22.04 o 24.04:
 
@@ -48,7 +48,8 @@ es automática, 0.7 → 0.3); `CM05_ASPECTO=0.5` fija la proporción alto/ancho;
 lado de los pines, p. ej. `{"arriba": ["clk", "rst"], "abajo": ["en", "q"]}` (ver `scripts/make_cel2.py`).
 Con 2 metales conviene poner los pines arriba/abajo: a los costados compiten con las franjas de alimentación.
 
-**Testbenches:** el testbench es el módulo superior, escribe `sim.vcd` con `$dumpfile` y reporta con
+**Testbenches:** el testbench es el módulo superior, guarda ondas con `$dumpvars` (cualquier nombre en
+`$dumpfile`, p. ej. el `dump.vcd` de EDA Playground; se normaliza a `sim.vcd`) y reporta con
 `$display`; una línea que empiece con `RESULTADO:` se muestra como resumen. La simulación post-layout es
 funcional (sin retardos), porque los tiempos de los modelos son de AMI C5.
 
