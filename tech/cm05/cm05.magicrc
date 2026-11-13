@@ -1,0 +1,13 @@
+#-----------------------------------------------------
+# .magicrc para CIDESI_CM05 bajo qflow (lambda = 2.5 um)
+#-----------------------------------------------------
+path sys +TECHDIR
+tech load CM05 -noprompt
+scalegrid 1 4
+set GND gnd
+set VDD vdd
+
+drc euclidean on
+drc off
+
+addpath digital

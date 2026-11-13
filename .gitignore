@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+# salidas de qflow/KLayout si se corre dentro del repo
+work/
+trabajo/
+*.lyrdb
+*.log

@@ -1,0 +1,56 @@
+# Corre el flujo completo con los ejemplos (DRC del deck oficial = 0) y ejecuta
+# el notebook, en la version de Ubuntu de Colab y en la siguiente.
+name: Prueba del flujo
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ejemplos:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    env:
+      CM05_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar herramientas
+        run: sudo -E bash scripts/install_tools.sh
+      - name: PDK CIDESI_CM05 (deck DRC)
+        run: git clone -q --depth 1 https://github.com/RodSchz/CIDESI_CM05 "$RUNNER_TEMP/CIDESI_CM05"
+      - name: Ejemplos
+        env:
+          CM05_STRICT: "1"
+        run: |
+          export PATH=/opt/cm05_eda/bin:/opt/cm05_eda/shims:$PATH
+          DECK="$RUNNER_TEMP/CIDESI_CM05/tech/CIDESI_CM05/drc/drc.lydrc"
+          for d in counter lfsr8 alu4 pwm8; do
+            mkdir -p "$RUNNER_TEMP/work/$d/source"
+            cp "examples/$d/$d.v" "$RUNNER_TEMP/work/$d/source/"
+            echo "::group::$d"
+            bash scripts/cm05_flow.sh "$d" "$RUNNER_TEMP/work/$d" "$DECK"
+            echo "::endgroup::"
+          done
+      - name: GDS resultantes
+        uses: actions/upload-artifact@v4
+        with:
+          name: gds-${{ matrix.os }}
+          path: ${{ runner.temp }}/work/*/*_cm05.gds
+
+  notebook:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ejecutar el notebook como en Colab
+        run: |
+          sudo mkdir -p /content && sudo chown "$USER" /content
+          cp -r "$GITHUB_WORKSPACE" /content/CM05_QFLOW
+          pip install -q nbconvert ipykernel
+          sudo -E env "PATH=$PATH" jupyter nbconvert --to notebook --execute \
+            --ExecutePreprocessor.timeout=3600 --output /tmp/nb.ipynb \
+            /content/CM05_QFLOW/notebooks/CM05_QFLOW.ipynb

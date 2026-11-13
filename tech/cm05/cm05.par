@@ -1,0 +1,49 @@
+# cm05.par --- Parameter file for GrayWolf (CIDESI_CM05, lambda = 2.5 um)
+# Derivado de osu050.par escalado x25/3, sin metal3.
+# NOTE:  all distance units are in centimicrons unless otherwise stated
+
+RULES
+    # Values are resistance in ohms/sq, and capacitance in fF/um^2
+    # APROXIMADOS: heredados de AMI C5, no medidos en CM05
+    layer metal1 0.09 0.032 horizontal
+    layer metal2 0.09 0.016 vertical
+
+    via via12 metal1 metal2
+
+    width metal1 750
+    width metal2 750
+    width via12 1250
+
+    # width + spacing = track pitch: metal1 2500 (10 lambda), metal2 2000 (8 lambda)
+    spacing metal1 metal1 1750
+    spacing metal2 metal2 1250
+
+    overhang via12 metal1 125
+    overhang via12 metal2 125
+
+ENDRULES
+
+*vertical_wire_weight : 1.0
+*vertical_path_weight : 1.0
+*padspacing           : variable
+*rowSep		      : 0.0   0
+*track.pitch	      : 0.0
+*minimum_pad_space    : 3000
+*gridX		      : 2000
+*gridY		      : 2500
+*gridOffsetX	      : 0
+*gridOffsetY	      : 0
+*graphics.wait        : off
+*last_chance.wait     : off
+*random.seed	      : 12345
+
+TWMC*chip.aspect.ratio : 0.75
+
+TWSC*feedThruWidth    : 2000 layer 1
+TWSC*do.global.route  : on
+TWSC*ignore_feeds     : true
+TWSC*call_row_evener	: true
+TWSC*even_rows_maximally : true
+
+GENR*row_to_tile_spacing: 1
+GENR*flip_alternate_rows : 1

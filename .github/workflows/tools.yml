@@ -1,0 +1,42 @@
+# Compila graywolf y qflow para cada version de Ubuntu y los publica como
+# release, para que el notebook los descargue en lugar de compilarlos.
+name: Binarios precompilados
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Etiqueta del release"
+        default: "tools-v1"
+  push:
+    tags: ["tools-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencias
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq netgen-lvs tcsh libgsl-dev tcl-dev tk-dev build-essential cmake
+      - name: Compilar y empaquetar
+        run: |
+          . /etc/os-release
+          bash scripts/package_tools.sh "cm05_eda-ubuntu${VERSION_ID}.tar.gz"
+          echo "ASSET=cm05_eda-ubuntu${VERSION_ID}.tar.gz" >> "$GITHUB_ENV"
+      - name: Publicar en el release
+        run: |
+          gh release view "$TAG" > /dev/null 2>&1 || \
+            gh release create "$TAG" --title "Herramientas precompiladas ($TAG)" \
+              --notes "graywolf y qflow compilados en /opt/cm05_eda para Ubuntu 22.04 (Colab) y 24.04. Los usa scripts/install_tools.sh."
+          gh release upload "$TAG" "$ASSET" --clobber
