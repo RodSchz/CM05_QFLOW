@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Compila graywolf y qflow en /opt/cm05_eda y los empaqueta para publicarlos
 # como release (lo usa .github/workflows/tools.yml en cada version de Ubuntu).
+# Requiere yosys, qrouter, magic y netgen-lvs instalados (qflow los detecta al configurarse).
 # Uso: package_tools.sh <salida.tar.gz>
 set -euo pipefail
 OUT=$(realpath -m "$1")
