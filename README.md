@@ -35,7 +35,8 @@ export PATH=/opt/cm05_eda/bin:/opt/cm05_eda/shims:$PATH
 mkdir -p trabajo/counter/source && cp CM05_QFLOW/examples/counter/counter.v trabajo/counter/source/
 bash CM05_QFLOW/scripts/cm05_flow.sh counter trabajo/counter \
      CIDESI_CM05/tech/CIDESI_CM05/drc/drc.lydrc
-# resultado: trabajo/counter/counter_cm05.gds y su reporte DRC (counter_cm05_drc.lyrdb)
+# resultado: trabajo/counter/counter_cm05.gds, su reporte DRC (counter_cm05_drc.lyrdb)
+#            y la vista de bloque para el floorplan (counter_bloque.png / .svg)
 
 # simulacion RTL y post-layout con el mismo testbench (las trazas deben ser identicas)
 bash CM05_QFLOW/scripts/cm05_sim.sh counter trabajo/counter CM05_QFLOW/examples/counter/counter_tb.v ambos
@@ -86,6 +87,7 @@ AND2X1/2, OR2X1/2, AOI21X1, AOI22X1, OAI21X1, OAI22X1, MUX2X1, TBUFX1/2, DFFPOSX
 | `scripts/cm05_flow.sh` | Flujo completo: qflow → GDS → legalizador → equivalencia → DRC |
 | `scripts/cm05_sim.sh` | Simulación RTL y post-layout con Icarus Verilog, y comparación de trazas |
 | `scripts/vcd_plot.py` | Formas de onda de un VCD con matplotlib |
+| `scripts/block_view.py` | Vista de bloque (contorno, dimensiones y pines) para el floorplan |
 | `scripts/cargar_diseno.py` | Detecta módulo superior y testbench en los archivos subidos |
 | `scripts/make_cel2.py`, `scripts/spread_pins.py` | Posición de pines por lado y reparto sobre pistas |
 | `scripts/install_tools.sh` | Instalación de herramientas (usa binarios del release si existen) |

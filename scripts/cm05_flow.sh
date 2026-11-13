@@ -70,6 +70,8 @@ echo "== Legalizador post-ruteo (regla 8.5)"
 python3 -I "$S/fix_route_vias.py" "${MOD}.gds" "$MOD" "${MOD}_cm05.gds"
 python3 -I "$S/netcompare.py" "${MOD}.gds" "${MOD}_cm05.gds" "$MOD" | tail -1
 python3 -I "$S/pin_labels.py" "${MOD}_cm05.gds" "$MOD" "${CM05_TEXTO:-20}"
+# vista de bloque (contorno y pines, sin detalle) para el floorplan
+python3 -I "$S/block_view.py" "${MOD}.def" "${MOD}.rtlnopwr.v" "${MOD}_bloque.png" "${MOD}_bloque.svg" || true
 echo "== DRC CIDESI_CM05 (KLayout)"
 "$S/cm05_drc.sh" "${MOD}_cm05.gds" "$MOD" "$DECK"
 # Modo estricto (pruebas automaticas): falla si el DRC no queda en cero

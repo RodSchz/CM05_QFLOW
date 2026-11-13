@@ -224,7 +224,14 @@ print('\\nDRC (deck oficial CIDESI_CM05):')
 print(subprocess.run(['python3', '-I', str(REPO_DIR / 'scripts' / 'rdb_summary.py'),
                       str(WORK / f'{MODULO}_cm05_drc.lyrdb')], capture_output=True, text=True).stdout)"""))
 
-cells.append(md("""## 7. Visualización del layout
+cells.append(md("""## 7. Vista de bloque
+El módulo como bloque, sin detalle del layout: contorno con sus dimensiones y cada pin en su posición real
+(entradas en azul hacia dentro, salidas en rojo hacia fuera, alimentación en gris). Sirve de referencia para
+el floorplan; se guarda en PNG y SVG (`<modulo>_bloque.png/.svg`) y va en el `.zip` de resultados."""))
+cells.append(code("""from IPython.display import Image, display
+display(Image(str(WORK / f'{MODULO}_bloque.png')))"""))
+
+cells.append(md("""## 8. Visualización del layout
 `ZOOM = None` muestra el chip completo; para acercarte usa `ZOOM = (x1, y1, x2, y2)` en µm."""))
 cells.append(code("""import klayout.lay as klay
 from IPython.display import Image, display
@@ -245,12 +252,13 @@ png = WORK / f'{MODULO}_cm05.png'
 lv.save_image(str(png), 1400, 1050)
 display(Image(str(png)))"""))
 
-cells.append(md("""## 8. Descargar resultados
-Un `.zip` con el Verilog y testbench, el GDS, la imagen del layout, los VCD de ambas simulaciones,
+cells.append(md("""## 9. Descargar resultados
+Un `.zip` con el Verilog y testbench, el GDS, la imagen del layout, la vista de bloque, los VCD de ambas simulaciones,
 el netlist post-ruteo, el reporte DRC (`.lyrdb`, se abre en KLayout) y el log de qflow."""))
 cells.append(code("""import zipfile
 ZIP = BASE / f'{MODULO}_cm05_resultados.zip'
-contenido = [RTL_V, TB_V, gds, png, WORK / f'{MODULO}_rtl.vcd', WORK / f'{MODULO}_postlayout.vcd',
+contenido = [RTL_V, TB_V, gds, png, WORK / f'{MODULO}_bloque.png', WORK / f'{MODULO}_bloque.svg',
+             WORK / f'{MODULO}_rtl.vcd', WORK / f'{MODULO}_postlayout.vcd',
              WORK / f'{MODULO}_postroute.v', WORK / f'{MODULO}_cm05_drc.lyrdb', WORK / 'qflow.log']
 with zipfile.ZipFile(ZIP, 'w', zipfile.ZIP_DEFLATED) as z:
     for f in contenido:
