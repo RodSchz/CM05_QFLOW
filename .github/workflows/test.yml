@@ -1,4 +1,5 @@
-# Corre el flujo completo con los ejemplos (DRC del deck oficial = 0) y ejecuta
+# Corre el flujo completo con los ejemplos (DRC del deck oficial = 0, simulacion
+# RTL y post-layout identicas y sin errores) y ejecuta
 # el notebook, en la version de Ubuntu de Colab y en la siguiente.
 name: Prueba del flujo
 
@@ -27,6 +28,7 @@ jobs:
         env:
           CM05_STRICT: "1"
         run: |
+          set -o pipefail
           export PATH=/opt/cm05_eda/bin:/opt/cm05_eda/shims:$PATH
           DECK="$RUNNER_TEMP/CIDESI_CM05/tech/CIDESI_CM05/drc/drc.lydrc"
           for d in counter lfsr8 alu4 pwm8; do
@@ -34,6 +36,7 @@ jobs:
             cp "examples/$d/$d.v" "$RUNNER_TEMP/work/$d/source/"
             echo "::group::$d"
             bash scripts/cm05_flow.sh "$d" "$RUNNER_TEMP/work/$d" "$DECK"
+            bash scripts/cm05_sim.sh "$d" "$RUNNER_TEMP/work/$d" "examples/$d/${d}_tb.v" ambos 2>&1 | grep -v "typ expression"
             echo "::endgroup::"
           done
       - name: GDS resultantes

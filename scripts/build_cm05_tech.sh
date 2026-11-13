@@ -22,6 +22,9 @@ echo "== 3. SPICE y liberty (aproximado)"
 python3 -I $S/make_cm05_views.py "$OSU/osu050_stdcells.sp" "$OSU/osu05_stdcells.lib" \
     "$OUT/cm05_stdcells.sp" "$OUT/cm05_stdcells.lib" $K --drop $EXCLUIDAS
 
+echo "== 3b. Modelos Verilog de celdas (simulacion a nivel compuertas)"
+python3 -I $S/make_cm05_verilog.py "$OSU/osu05_stdcells.v" "$OUT/cm05_stdcells.lib" "$OUT/cm05_stdcells.v"
+
 echo "== 4. Tech de magic"
 python3 -I $S/make_magic_tech.py "$OSU/SCN3ME_SUBM.30.tech" "$OUT/CM05.tech"
 

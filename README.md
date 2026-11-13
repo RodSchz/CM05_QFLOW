@@ -7,14 +7,17 @@ Flujo digital **Verilog → GDS** para el proceso **CIDESI_CM05** (CMOS, λ = 2.
 1 polisilicio) con [qflow](http://opencircuitdesign.com/qflow/), listo para usarse en Google Colab.
 
 ```
+Verilog + testbench ──iverilog──► simulación RTL
 Verilog ──yosys──► netlist ──graywolf──► colocación ──qrouter (2 metales)──► ruteo
         ──magic/netgen──► LVS ──legalizador──► GDS ──KLayout + deck CIDESI_CM05──► DRC
+netlist post-ruteo + modelos cm05 ──iverilog──► simulación post-layout (debe coincidir con la RTL)
 ```
 
 ## Uso rápido
 
 Abre el notebook con el botón **Open in Colab** y ejecuta todas las celdas: instala las
-herramientas, toma un ejemplo (o tu propio Verilog), corre el flujo completo y muestra el layout.
+herramientas, toma un ejemplo (o tu propio Verilog y testbench), lo simula, corre el flujo completo,
+vuelve a simular el netlist extraído del layout y muestra las formas de onda y el layout.
 
 En una máquina con Ubuntu 22.04 o 24.04:
 
@@ -28,7 +31,15 @@ mkdir -p trabajo/counter/source && cp CM05_QFLOW/examples/counter/counter.v trab
 bash CM05_QFLOW/scripts/cm05_flow.sh counter trabajo/counter \
      CIDESI_CM05/tech/CIDESI_CM05/drc/drc.lydrc
 # resultado: trabajo/counter/counter_cm05.gds y su reporte DRC (counter_cm05_drc.lyrdb)
+
+# simulacion RTL y post-layout con el mismo testbench (las trazas deben ser identicas)
+bash CM05_QFLOW/scripts/cm05_sim.sh counter trabajo/counter CM05_QFLOW/examples/counter/counter_tb.v ambos
+python3 CM05_QFLOW/scripts/vcd_plot.py trabajo/counter/sim_gate/sim.vcd ondas.png "clk,rst,q" 0 3000
 ```
+
+**Testbenches:** el testbench es el módulo superior, escribe `sim.vcd` con `$dumpfile` y reporta con
+`$display`; una línea que empiece con `RESULTADO:` se muestra como resumen. La simulación post-layout es
+funcional (sin retardos), porque los tiempos de los modelos son de AMI C5.
 
 ## Biblioteca de celdas `cm05`
 
@@ -60,9 +71,11 @@ AND2X1/2, OR2X1/2, AOI21X1, AOI22X1, OAI21X1, OAI22X1, MUX2X1, TBUFX1/2, DFFPOSX
 | Ruta | Contenido |
 |---|---|
 | `notebooks/CM05_QFLOW.ipynb` | Notebook de Colab (se genera con `tools/make_notebook.py`) |
-| `tech/cm05/` | Tecnología qflow: LEF, GDS, SPICE y liberty de celdas, tech de magic, `.par`, `.sh` |
-| `examples/` | Diseños de ejemplo: `counter`, `lfsr8`, `alu4`, `pwm8` |
+| `tech/cm05/` | Tecnología qflow: LEF, GDS, SPICE, liberty y modelos Verilog de celdas, tech de magic, `.par`, `.sh` |
+| `examples/` | Diseños de ejemplo con testbench autoverificable: `counter`, `lfsr8`, `alu4`, `pwm8` |
 | `scripts/cm05_flow.sh` | Flujo completo: qflow → GDS → legalizador → equivalencia → DRC |
+| `scripts/cm05_sim.sh` | Simulación RTL y post-layout con Icarus Verilog, y comparación de trazas |
+| `scripts/vcd_plot.py` | Formas de onda de un VCD con matplotlib |
 | `scripts/install_tools.sh` | Instalación de herramientas (usa binarios del release si existen) |
 | `scripts/build_cm05_tech.sh` | Reconstruye `tech/cm05` desde `osu050` con todas las correcciones |
 | `docs/NOTAS_TECNICAS.md` | Decisiones y hallazgos de la adaptación |

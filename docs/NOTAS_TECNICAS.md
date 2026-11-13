@@ -38,6 +38,15 @@
 - `fix_route_vias.py` reubica las pocas vías de ruteo que aún violan 8.5 y `netcompare.py` confirma que el
   netlist extraído no cambia.
 
+## Simulación
+- `cm05_stdcells.v` sale de `osu05_stdcells.v` quitando solo los módulos de celdas excluidas y pads; las
+  primitivas (`udp_dff`, `udp_mux2`, …) se conservan. Los retardos de `specify` son de AMI C5, así que la
+  simulación post-layout se usa funcional (sin `-gspecify`).
+- El netlist post-ruteo de qflow (`DEF2Verilog`) vuelve a declarar como `wire` los puertos ANSI; iverilog no
+  lo acepta, así que `cm05_sim.sh` quita esas redeclaraciones antes de compilar.
+- Prueba negativa: cambiar una NAND2X1 por NOR2X1 en el netlist post-ruteo hace fallar el testbench y la
+  comparación de trazas.
+
 ## Intentos descartados
 - Obstrucciones grandes en la capa `via` del LEF: qrouter las ignora y magic las toma como contactos M1–M2
   en la vista abstracta, cortocircuitando los pines en LVS.

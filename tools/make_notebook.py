@@ -16,15 +16,17 @@ cells.append(md(f"""# CM05_QFLOW — de Verilog a GDS en el proceso CIDESI_CM05
 Este notebook lleva un diseño digital escrito en **Verilog** hasta un **layout GDS** del proceso
 **CIDESI_CM05** (CMOS, λ = 2.5 µm, 2 metales, 1 polisilicio) usando **qflow**:
 
+0. **Simulación RTL** de tu Verilog con Icarus Verilog y un testbench.
 1. **Síntesis** con yosys a la biblioteca de celdas `cm05` (celdas OSU adaptadas a CM05).
 2. **Colocación** con graywolf y **ruteo** en 2 metales con qrouter.
 3. **LVS** con magic + netgen (layout contra netlist sintetizado).
 4. **Legalización post-ruteo**: aleja las vías de los bordes de poly/activo (regla 8.5 de CM05, proceso sin planarización).
 5. **DRC** con el deck oficial de CIDESI_CM05 en KLayout.
+6. **Simulación post-layout**: el mismo testbench sobre el netlist extraído del layout ruteado, comparado contra la simulación RTL.
 
 Ejecuta las celdas en orden (**Entorno de ejecución → Ejecutar todas**). La instalación tarda unos minutos la primera vez."""))
 
-cells.append(md("## 1. Instalación\nDescarga este repositorio y el PDK `CIDESI_CM05` (para el deck DRC) e instala yosys, graywolf, qrouter, magic, netgen, qflow y KLayout."))
+cells.append(md("## 1. Instalación\nDescarga este repositorio y el PDK `CIDESI_CM05` (para el deck DRC) e instala Icarus Verilog, yosys, graywolf, qrouter, magic, netgen, qflow y KLayout."))
 cells.append(code("""import os, pathlib
 BASE = pathlib.Path('/content') if pathlib.Path('/content').exists() else pathlib.Path.home() / 'cm05_work'
 BASE.mkdir(parents=True, exist_ok=True)
@@ -41,12 +43,15 @@ set -e
 [ -d "$REPO_DIR" ] || git clone -q --depth 1 https://github.com/{REPO} "$REPO_DIR"
 [ -d "$PDK_DIR" ]  || git clone -q --depth 1 https://github.com/RodSchz/CIDESI_CM05 "$PDK_DIR"
 bash "$REPO_DIR/scripts/install_tools.sh" 2>&1 | grep -E "^==|binarios|compilando|Listo|ERROR|KLayout [0-9]"
-for t in yosys graywolf qrouter magic netgen qflow klayout; do printf "%-9s %s\\n" $t "$(command -v $t || echo FALTA)"; done"""))
+for t in iverilog yosys graywolf qrouter magic netgen qflow klayout; do printf "%-9s %s\\n" $t "$(command -v $t || echo FALTA)"; done"""))
 
-cells.append(md("""## 2. Tu diseño en Verilog
+cells.append(md("""## 2. Tu diseño y su testbench
 
-Escribe tu módulo en `VERILOG` y pon su nombre en `MODULO`, o elige uno de los ejemplos con `EJEMPLO`
-(`'counter'`, `'lfsr8'`, `'alu4'`, `'pwm8'`).
+Escribe tu módulo en `VERILOG` (con su nombre en `MODULO`) y un testbench en `TESTBENCH`, o elige uno de los
+ejemplos con `EJEMPLO` (`'counter'`, `'lfsr8'`, `'alu4'`, `'pwm8'`), que traen testbench autoverificable.
+
+**El testbench** debe ser el módulo superior, escribir las ondas con `$dumpfile("sim.vcd")` y reportar con
+`$display`; si imprime una línea que empiece con `RESULTADO:`, el notebook la muestra como resumen.
 
 **Restricciones de la biblioteca `cm05`:**
 - Solo **reset síncrono** (`always @(posedge clk) if (rst) ...`): el flip-flop con set/reset asíncrono (DFFSR) no está disponible porque viola la regla 8.5 de CM05.
@@ -55,34 +60,81 @@ Escribe tu módulo en `VERILOG` y pon su nombre en `MODULO`, o elige uno de los 
 cells.append(code("""EJEMPLO = 'counter'      # None para usar tu propio código de abajo
 
 MODULO = 'mi_diseno'
-VERILOG = r'''
-// Ejemplo: contador de 4 bits con reset sincrono
+VERILOG = r\'\'\'
+// Contador de 4 bits con reset sincrono
 module mi_diseno (input clk, input rst, input en, output reg [3:0] q);
   always @(posedge clk)
     if (rst)     q <= 4'd0;
     else if (en) q <= q + 4'd1;
 endmodule
-'''
+\'\'\'
+TESTBENCH = r\'\'\'
+`timescale 1ns/1ps
+module tb;
+  reg clk = 0, rst = 1, en = 1;
+  wire [3:0] q;
+  mi_diseno dut (.clk(clk), .rst(rst), .en(en), .q(q));
+  always #50 clk = ~clk;                       // 10 MHz
+  initial begin
+    $dumpfile("sim.vcd"); $dumpvars(0, tb);
+    #250 rst = 0;
+    repeat (20) begin @(negedge clk); $display("q=%0d", q); end
+    $display("RESULTADO: simulacion terminada");
+    $finish;
+  end
+endmodule
+\'\'\'
 
 if EJEMPLO:
     MODULO = EJEMPLO
     VERILOG = (REPO_DIR / 'examples' / EJEMPLO / f'{EJEMPLO}.v').read_text()
+    TESTBENCH = (REPO_DIR / 'examples' / EJEMPLO / f'{EJEMPLO}_tb.v').read_text()
 
 WORK = BASE / 'work' / MODULO
 (WORK / 'source').mkdir(parents=True, exist_ok=True)
 (WORK / 'source' / f'{MODULO}.v').write_text(VERILOG)
+(WORK / f'{MODULO}_tb.v').write_text(TESTBENCH)
 os.environ['MODULO'] = MODULO
 os.environ['WORK'] = str(WORK)
 print(VERILOG)"""))
 
-cells.append(md("""## 3. Flujo completo
+cells.append(md("""## 3. Simulación RTL
+Simula tu Verilog antes de mandarlo a layout. En la gráfica de ondas puedes elegir señales con `SENALES`
+(p. ej. `['clk', 'rst', 'q']`; `None` = todas las del testbench) y una ventana de tiempo en ns con `T0`, `T1`."""))
+cells.append(code("""%%bash
+bash "$REPO_DIR/scripts/cm05_sim.sh" "$MODULO" "$WORK" "$WORK/${MODULO}_tb.v" rtl 2>&1 | grep -v "typ expression"
+echo "--- primeras lineas de la salida del testbench:"
+head -12 "$WORK/sim_rtl/salida.txt"
+"""))
+cells.append(code("""import sys
+sys.path.insert(0, str(REPO_DIR / 'scripts'))
+import matplotlib.pyplot as plt
+from vcd_plot import plot as ondas
+SENALES = None          # p. ej. ['clk', 'rst', 'q']
+T0, T1 = 0, 3000        # ventana en ns (None = completa)
+ondas(str(WORK / 'sim_rtl' / 'sim.vcd'), SENALES, T0, T1)
+plt.show()"""))
+
+cells.append(md("""## 4. Flujo de Verilog a GDS
 Si el ruteo no cierra, el script reintenta con menor densidad de colocación (0.7 → 0.5 → 0.4 → 0.3):
 con solo dos metales el ruteo necesita espacio libre entre celdas."""))
 cells.append(code("""%%bash
 DECK="$PDK_DIR/tech/CIDESI_CM05/drc/drc.lydrc"
 bash "$REPO_DIR/scripts/cm05_flow.sh" "$MODULO" "$WORK" "$DECK" """))
 
-cells.append(md("## 4. Resultados"))
+cells.append(md("""## 5. Simulación post-layout
+El mismo testbench sobre el netlist que quedó en el layout ruteado (`<modulo>_postroute.v`, con los modelos
+de las celdas cm05). Las trazas de texto deben ser **idénticas** a las de la simulación RTL.
+La simulación es funcional (sin retardos): los tiempos del liberty son de AMI C5, no de CM05."""))
+cells.append(code("""%%bash
+bash "$REPO_DIR/scripts/cm05_sim.sh" "$MODULO" "$WORK" "$WORK/${MODULO}_tb.v" ambos 2>&1 | grep -v "typ expression"
+"""))
+cells.append(code("""fig, axs = plt.subplots(2, 1, figsize=(14, 9), sharex=True)
+ondas(str(WORK / 'sim_rtl' / 'sim.vcd'), SENALES, T0, T1, ax=axs[0]); axs[0].set_title('RTL')
+ondas(str(WORK / 'sim_gate' / 'sim.vcd'), SENALES, T0, T1, ax=axs[1]); axs[1].set_title('Post-layout (compuertas cm05)')
+plt.tight_layout(); plt.show()"""))
+
+cells.append(md("## 6. Resultados del layout"))
 cells.append(code("""import re, subprocess, klayout.db as kdb
 synth = (WORK / 'log' / 'synth.log').read_text(errors='ignore')
 stats = re.findall(r'Number of cells:\\s+(\\d+)\\n(.*?)\\n\\n', synth, re.S)
@@ -100,7 +152,7 @@ print('\\nDRC (deck oficial CIDESI_CM05):')
 print(subprocess.run(['python3', '-I', str(REPO_DIR / 'scripts' / 'rdb_summary.py'),
                       str(WORK / f'{MODULO}_cm05_drc.lyrdb')], capture_output=True, text=True).stdout)"""))
 
-cells.append(md("""## 5. Visualización del layout
+cells.append(md("""## 7. Visualización del layout
 `ZOOM = None` muestra el chip completo; para acercarte usa `ZOOM = (x1, y1, x2, y2)` en µm."""))
 cells.append(code("""import klayout.lay as klay
 from IPython.display import Image, display
@@ -120,7 +172,7 @@ png = WORK / f'{MODULO}_cm05.png'
 lv.save_image(str(png), 1400, 1050)
 display(Image(str(png)))"""))
 
-cells.append(md("## 6. Descargar el GDS"))
+cells.append(md("## 8. Descargar el GDS"))
 cells.append(code("""try:
     from google.colab import files
     files.download(str(gds))

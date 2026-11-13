@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Instala las herramientas del flujo CM05_QFLOW en Ubuntu (Colab, 22.04 o 24.04).
 #
-#   apt : magic, qrouter, yosys, netgen-lvs, tcsh (+ bibliotecas de graywolf)
-#   pip : klayout (modulo de Python, para visualizar GDS)
+#   apt : iverilog, magic, qrouter, yosys, netgen-lvs, tcsh (+ bibliotecas de graywolf)
+#   pip : klayout (visualizar GDS) y matplotlib (formas de onda)
 #   KLayout ejecutable (para el DRC oficial de CIDESI_CM05): paquete .deb
 #         oficial si se puede descargar, si no el de apt
 #   graywolf + qflow: binarios precompilados del release del repositorio para
@@ -25,11 +25,11 @@ export DEBIAN_FRONTEND=noninteractive
 
 echo "== apt (Ubuntu $UBU)"
 $SUDO apt-get update -qq
-$SUDO apt-get install -y -qq magic qrouter yosys netgen-lvs tcsh curl \
+$SUDO apt-get install -y -qq iverilog magic qrouter yosys netgen-lvs tcsh curl \
     libgsl-dev tcl-dev tk-dev build-essential cmake git python3-pip > /dev/null
 
-echo "== pip: klayout"
-pip install -q klayout 2>/dev/null || pip install -q --break-system-packages klayout
+echo "== pip: klayout, matplotlib"
+pip install -q klayout matplotlib 2>/dev/null || pip install -q --break-system-packages klayout matplotlib
 
 echo "== KLayout ejecutable (DRC)"
 # El deck de CIDESI_CM05 necesita KLayout >= 0.28; apt en Ubuntu 22.04 trae 0.26.
